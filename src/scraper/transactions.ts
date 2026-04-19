@@ -1,82 +1,89 @@
 import type { Page } from "playwright";
 import type { Transaction } from "../types.ts";
-import { URL_CF, urlCfForMonth } from "./urls.ts";
 
 export interface ListOptions {
   since?: string;
   until?: string;
 }
 
-function monthsBetween(since?: string, until?: string): string[] {
-  const now = new Date();
-  const end = until ? new Date(until) : now;
-  const start = since ? new Date(since) : new Date(end.getFullYear(), end.getMonth(), 1);
-  const months: string[] = [];
-  const cursor = new Date(start.getFullYear(), start.getMonth(), 1);
-  while (cursor <= end) {
-    const m = `${cursor.getFullYear()}-${String(cursor.getMonth() + 1).padStart(2, "0")}`;
-    months.push(m);
-    cursor.setMonth(cursor.getMonth() + 1);
+function monthCursor(since: Date, until: Date): Array<{ year: number; month: number; from: string }> {
+  const out: Array<{ year: number; month: number; from: string }> = [];
+  const c = new Date(since.getFullYear(), since.getMonth(), 1);
+  while (c <= until) {
+    const y = c.getFullYear();
+    const m = c.getMonth() + 1;
+    out.push({ year: y, month: m, from: `${y}/${String(m).padStart(2, "0")}/01` });
+    c.setMonth(c.getMonth() + 1);
   }
-  return months.length ? months : [`${end.getFullYear()}-${String(end.getMonth() + 1).padStart(2, "0")}`];
+  return out;
+}
+
+function monthUrl(from: string, month: number, year: number): string {
+  const params = new URLSearchParams({ from, month: String(month), year: String(year) });
+  return `https://moneyforward.com/cf?${params.toString()}`;
 }
 
 export async function fetchTransactions(page: Page, opts: ListOptions): Promise<Transaction[]> {
-  const months = monthsBetween(opts.since, opts.until);
+  const now = new Date();
+  const until = opts.until ? new Date(opts.until) : now;
+  const since = opts.since ? new Date(opts.since) : new Date(until.getFullYear(), until.getMonth(), 1);
+  const months = monthCursor(since, until);
+
   const results: Transaction[] = [];
-  for (const ym of months) {
-    await page.goto(urlCfForMonth(ym), { waitUntil: "domcontentloaded" });
-    await page.waitForSelector("table.cf-detail-table, table#cf-detail-table, table", { timeout: 15_000 });
-    const rows = await parsePage(page);
+  for (const m of months) {
+    await page.goto(monthUrl(m.from, m.month, m.year), { waitUntil: "domcontentloaded" });
+    await page.waitForSelector("tr.transaction_list, #cf_main_bg", { timeout: 20_000 });
+    const rows = await parseRows(page);
     results.push(...rows);
   }
-  return filterByDate(results, opts);
+  return filterByDate(results, since, until);
 }
 
-async function parsePage(page: Page): Promise<Transaction[]> {
-  return await page.evaluate(() => {
-    const out: Transaction[] = [];
-    const rows = document.querySelectorAll<HTMLTableRowElement>("table tbody tr.transaction_list");
-    rows.forEach((tr) => {
-      const id = tr.getAttribute("id") ?? tr.dataset["id"] ?? "";
-      const dateText = tr.querySelector<HTMLElement>(".date, td.date")?.innerText?.trim() ?? "";
-      const amountText = tr.querySelector<HTMLElement>(".amount, td.amount")?.innerText?.replace(/[^0-9-]/g, "") ?? "0";
-      const account = tr.querySelector<HTMLElement>(".account, td.account")?.innerText?.trim() ?? "";
-      const title = tr.querySelector<HTMLElement>(".content, td.content")?.innerText?.trim() ?? "";
-      const largeName = tr.querySelector<HTMLElement>(".lctg-name, .l_c_name")?.innerText?.trim() ?? "";
-      const middleName = tr.querySelector<HTMLElement>(".mctg-name, .m_c_name")?.innerText?.trim() ?? "";
-      const memo = tr.querySelector<HTMLElement>(".memo, td.memo")?.innerText?.trim() ?? "";
-      const isTransfer = tr.classList.contains("transfer") || /振替/.test(title);
-      const isManualEntry = tr.classList.contains("manual") || tr.querySelector(".manual-entry") !== null;
+async function parseRows(page: Page): Promise<Transaction[]> {
+  return await page.$$eval("tr.transaction_list", (trs) =>
+    trs.map((tr) => {
+      const q = <T extends Element = HTMLElement>(sel: string) => tr.querySelector<T>(sel);
+      const idAttr = tr.getAttribute("id") ?? "";
+      const id = idAttr.replace(/^js-transaction-/, "");
+      const hiddenId = q<HTMLInputElement>('input[name="user_asset_act[id]"]')?.value ?? id;
 
-      out.push({
-        id: id.replace(/^js-transaction-/, ""),
-        date: dateText,
-        amount: Number(amountText) || 0,
+      const dateAttr = q('td.date')?.getAttribute("data-table-sortable-value") ?? "";
+      const dateYmd = dateAttr.split("-")[0] ?? "";
+      const isoDate = dateYmd.replaceAll("/", "-");
+
+      const title = (q('td.content span')?.textContent ?? "").trim();
+      const amountRaw = (q('td.amount .offset')?.textContent ?? "0").replace(/[^0-9-]/g, "");
+      const account = (q('td.note')?.textContent ?? "").trim();
+      const largeName = (q('.v_l_ctg')?.textContent ?? "").trim().replace(/\s+/g, " ");
+      const middleName = (q('.v_m_ctg')?.textContent ?? "").trim().replace(/\s+/g, " ");
+      const largeId = q<HTMLInputElement>('input.h_l_ctg')?.value ?? "";
+      const middleId = q<HTMLInputElement>('input.h_m_ctg')?.value ?? "";
+      const memo = (q('td.memo .noform span')?.textContent ?? "").trim();
+      const isTransfer = tr.classList.contains("transfer") || !!q('.icon-exchange.active');
+      const isManualEntry = !!q('input[name="user_asset_act[table_name]"][value="user_manual_cache_act"]');
+
+      return {
+        id: hiddenId || id,
+        date: isoDate,
+        amount: Number(amountRaw) || 0,
         account,
-        category: largeName || middleName ? {
-          largeId: "",
-          largeName,
-          middleId: "",
-          middleName,
-        } : null,
+        category: largeName || middleName
+          ? { largeId, largeName, middleId, middleName }
+          : null,
         memo: memo || null,
         title,
         isTransfer,
         isManualEntry,
-      });
-    });
-    return out;
-  });
+      };
+    }),
+  );
 }
 
-function filterByDate(txs: Transaction[], opts: ListOptions): Transaction[] {
-  const since = opts.since ? new Date(opts.since) : null;
-  const until = opts.until ? new Date(opts.until) : null;
+function filterByDate(txs: Transaction[], since: Date, until: Date): Transaction[] {
+  // until は当日も含めたいので 23:59:59 まで広げる
+  const untilEnd = new Date(until.getFullYear(), until.getMonth(), until.getDate(), 23, 59, 59);
   return txs.filter((tx) => {
     const d = new Date(tx.date);
-    if (since && d < since) return false;
-    if (until && d > until) return false;
-    return true;
+    return d >= since && d <= untilEnd;
   });
 }

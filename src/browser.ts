@@ -12,6 +12,11 @@ export interface LaunchOptions {
   requireSession?: boolean;
 }
 
+// headless chromium の素の UA だと ME 側で弾かれるので固定値で偽装する
+const UA =
+  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 " +
+  "(KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36";
+
 export async function launch(opts: LaunchOptions = {}): Promise<BrowserHandle> {
   const browser = await chromium.launch({ headless: !opts.headed });
   const sessionPath = await loadSession();
@@ -21,9 +26,10 @@ export async function launch(opts: LaunchOptions = {}): Promise<BrowserHandle> {
     throw new Error("session not found. run `mfme login` first.");
   }
 
-  const context = await browser.newContext(
-    sessionPath ? { storageState: sessionPath } : {},
-  );
+  const context = await browser.newContext({
+    userAgent: UA,
+    ...(sessionPath ? { storageState: sessionPath } : {}),
+  });
 
   return {
     browser,

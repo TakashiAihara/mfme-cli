@@ -1,21 +1,28 @@
-// DOM / セレクタ調査用のアドホック probe。
-// `bun run scripts/dump-cf.ts` で /cf の HTML を tmp/ に保存する。
-import { writeFile, mkdir } from "node:fs/promises";
+import { writeFile } from "node:fs/promises";
 import { launch } from "../src/browser.ts";
-
-await mkdir("tmp", { recursive: true });
 
 const handle = await launch({ requireSession: true });
 const page = await handle.context.newPage();
 
 await page.goto("https://moneyforward.com/cf", { waitUntil: "domcontentloaded" });
-await page.waitForSelector("tr.transaction_list .v_l_ctg", { timeout: 20_000 });
-await writeFile("tmp/cf.html", await page.content());
+await page.waitForSelector("tr.transaction_list", { timeout: 10_000 });
 
-// row の大項目ドロップダウンを展開して全カテゴリ取得状態の HTML を保存
-await page.click("tr.transaction_list .v_l_ctg");
-await page.waitForFunction(() => document.querySelectorAll("a.l_c_name").length > 0, undefined, { timeout: 10_000 });
-await writeFile("tmp/cf-dropdown.html", await page.content());
+const result = await page.evaluate(async () => {
+  const token = document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content ?? "";
+  const res = await fetch("/cf/fetch", {
+    method: "POST",
+    credentials: "same-origin",
+    headers: {
+      "X-CSRF-Token": token,
+      "Content-Type": "application/x-www-form-urlencoded",
+      "X-Requested-With": "XMLHttpRequest",
+      Accept: "text/javascript, application/javascript, */*; q=0.01",
+    },
+    body: "from=2026/3/1&service_id=&account_id_hash=",
+  });
+  const text = await res.text();
+  return { status: res.status, ct: res.headers.get("content-type"), len: text.length, head: text.slice(0, 800) };
+});
+console.error(JSON.stringify(result, null, 2));
 
-console.error("saved tmp/cf.html and tmp/cf-dropdown.html");
 await handle.close();

@@ -6,21 +6,14 @@ export interface ListOptions {
   until?: string;
 }
 
-function monthCursor(since: Date, until: Date): Array<{ year: number; month: number; from: string }> {
-  const out: Array<{ year: number; month: number; from: string }> = [];
+function monthCursor(since: Date, until: Date): Array<{ from: string }> {
+  const out: Array<{ from: string }> = [];
   const c = new Date(since.getFullYear(), since.getMonth(), 1);
   while (c <= until) {
-    const y = c.getFullYear();
-    const m = c.getMonth() + 1;
-    out.push({ year: y, month: m, from: `${y}/${String(m).padStart(2, "0")}/01` });
+    out.push({ from: `${c.getFullYear()}/${c.getMonth() + 1}/1` });
     c.setMonth(c.getMonth() + 1);
   }
   return out;
-}
-
-function monthUrl(from: string, month: number, year: number): string {
-  const params = new URLSearchParams({ from, month: String(month), year: String(year) });
-  return `https://moneyforward.com/cf?${params.toString()}`;
 }
 
 export async function fetchTransactions(page: Page, opts: ListOptions): Promise<Transaction[]> {
@@ -29,14 +22,46 @@ export async function fetchTransactions(page: Page, opts: ListOptions): Promise<
   const since = opts.since ? new Date(opts.since) : new Date(until.getFullYear(), until.getMonth(), 1);
   const months = monthCursor(since, until);
 
+  // 初回に /cf を開いて CSRF token / jQuery / list_body を確立
+  await page.goto("https://moneyforward.com/cf", { waitUntil: "domcontentloaded" });
+  await page.waitForSelector("tr.transaction_list", { timeout: 20_000 });
+
   const results: Transaction[] = [];
   for (const m of months) {
-    await page.goto(monthUrl(m.from, m.month, m.year), { waitUntil: "domcontentloaded" });
-    await page.waitForSelector("tr.transaction_list, #cf_main_bg", { timeout: 20_000 });
+    await fetchMonthIntoDom(page, m.from);
     const rows = await parseRows(page);
     results.push(...rows);
   }
   return filterByDate(results, since, until);
+}
+
+// POST /cf/fetch はサーバ側で「選択月」を切り替えつつ JS を返し、
+// それを eval することで `.list_body` に対象月の行が差し込まれる。
+async function fetchMonthIntoDom(page: Page, from: string): Promise<void> {
+  const ok = await page.evaluate(async (fromDate) => {
+    const token =
+      document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content ?? "";
+    const body = new URLSearchParams({ from: fromDate, service_id: "", account_id_hash: "" });
+    const res = await fetch("/cf/fetch", {
+      method: "POST",
+      credentials: "same-origin",
+      headers: {
+        "X-CSRF-Token": token,
+        "Content-Type": "application/x-www-form-urlencoded",
+        "X-Requested-With": "XMLHttpRequest",
+        Accept: "text/javascript, application/javascript, */*; q=0.01",
+      },
+      body: body.toString(),
+    });
+    if (!res.ok) return { ok: false, status: res.status };
+    const text = await res.text();
+    // eslint-disable-next-line no-eval
+    (0, eval)(text);
+    return { ok: true, status: res.status };
+  }, from);
+  if (!ok.ok) {
+    throw new Error(`/cf/fetch failed: HTTP ${ok.status} (from=${from})`);
+  }
 }
 
 async function parseRows(page: Page): Promise<Transaction[]> {

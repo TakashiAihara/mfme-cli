@@ -1,0 +1,26 @@
+{
+  "name": "mfme-cli",
+  "version": "0.1.0",
+  "description": "Unofficial CLI for Moneyforward ME (UI automation via Playwright)",
+  "private": false,
+  "type": "module",
+  "bin": {
+    "mfme": "./bin/mfme.ts"
+  },
+  "scripts": {
+    "start": "bun run bin/mfme.ts",
+    "typecheck": "tsc --noEmit",
+    "install-browsers": "bunx playwright install chromium"
+  },
+  "dependencies": {
+    "commander": "^12.1.0",
+    "playwright": "^1.48.0"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "typescript": "^5.6.0"
+  },
+  "engines": {
+    "bun": ">=1.1.0"
+  }
+}

@@ -14,7 +14,9 @@ export async function runLogin(): Promise<number> {
   try {
     await page.waitForURL((u) => {
       const url = new URL(u.toString());
-      if (url.host === HOST_ID && !url.pathname.startsWith("/sign_in")) return true;
+      // ID ホスト側は /me にピタリ着くまで待つ (MFA 等の中間画面で早期確定しない)
+      if (url.host === HOST_ID && url.pathname === "/me") return true;
+      // ME 本体に着いたら完了
       if (url.host === HOST_ME && !url.pathname.startsWith("/sign_in")) return true;
       return false;
     }, { timeout: 10 * 60_000 });

@@ -10,7 +10,7 @@
   "scripts": {
     "start": "bun run bin/mfme.ts",
     "typecheck": "tsc --noEmit",
-    "install-browsers": "bunx playwright install chromium"
+    "install-browsers": "bun x playwright install chromium"
   },
   "dependencies": {
     "commander": "^12.1.0",

@@ -1,6 +1,6 @@
 import { chromium } from "playwright";
 import { saveSession } from "../session.ts";
-import { HOST_ID, HOST_ME, URL_HOME, URL_SIGN_IN } from "../scraper/urls.ts";
+import { HOST_ME, URL_SIGN_IN } from "../scraper/urls.ts";
 import { log } from "../log.ts";
 
 export async function runLogin(): Promise<number> {
@@ -8,13 +8,14 @@ export async function runLogin(): Promise<number> {
   const context = await browser.newContext();
   const page = await context.newPage();
 
-  log.info("ブラウザでログインしてください (MFA 含む)。ID 側 /me に着いたら自動で ME へ遷移します。");
+  log.info("ブラウザでログインしてください (MFA 含む)。ME 側に戻ってきたら自動で保存します。");
+  // ME の /sign_in → SSO で id.moneyforward.com へ → 認証後に ME の認証済みページへ戻る
   await page.goto(URL_SIGN_IN);
 
   try {
     await page.waitForURL((u) => {
       const url = new URL(u.toString());
-      return url.host === HOST_ID && url.pathname === "/me";
+      return url.host === HOST_ME && !url.pathname.startsWith("/sign_in");
     }, { timeout: 10 * 60_000 });
   } catch {
     log.error("ログイン待機がタイムアウトしました");
@@ -22,19 +23,9 @@ export async function runLogin(): Promise<number> {
     return 1;
   }
 
-  log.info("ID 認証を通過。Moneyforward ME へ遷移してセッションを確立します…");
-  await page.goto(URL_HOME, { waitUntil: "domcontentloaded" });
-  try {
-    await page.waitForURL((u) => new URL(u.toString()).host === HOST_ME, { timeout: 60_000 });
-  } catch {
-    log.error("ME への遷移に失敗しました");
-    await browser.close();
-    return 1;
-  }
-
   const storageState = await context.storageState();
   await saveSession(storageState);
-  log.info("セッションを保存しました");
+  log.info(`セッションを保存しました (final URL: ${page.url()})`);
   await browser.close();
   return 0;
 }

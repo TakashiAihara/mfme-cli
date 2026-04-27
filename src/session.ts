@@ -1,4 +1,4 @@
-import { mkdir, readFile, writeFile, stat } from "node:fs/promises";
+import { mkdir, writeFile, stat } from "node:fs/promises";
 import { dirname } from "node:path";
 import { SESSION_FILE } from "./paths.ts";
 
@@ -14,7 +14,6 @@ export async function loadSession(): Promise<string | null> {
     return null;
   }
 
-  await readFile(SESSION_FILE, "utf8");
   return SESSION_FILE;
 }
 

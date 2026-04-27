@@ -7,12 +7,12 @@ import { log } from "../log.ts";
 import { EXIT } from "../types.ts";
 import type { CategoryMeta } from "../types.ts";
 
-export interface UpdateArgs {
+export type UpdateArgs = {
   txId: string;
   memo?: string;
   category?: string;
   dryRun: boolean;
-}
+};
 
 async function loadMeta(): Promise<CategoryMeta> {
   try {

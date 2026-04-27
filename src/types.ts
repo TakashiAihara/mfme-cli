@@ -1,6 +1,6 @@
 export type ISODate = string;
 
-export interface Transaction {
+export type Transaction = {
   id: string;
   date: ISODate;
   amount: number;
@@ -10,20 +10,20 @@ export interface Transaction {
   title: string;
   isTransfer: boolean;
   isManualEntry: boolean;
-}
+};
 
-export interface CategoryRef {
+export type CategoryRef = {
   largeId: string;
   largeName: string;
   middleId: string;
   middleName: string;
-}
+};
 
-export interface CategoryMeta {
+export type CategoryMeta = {
   large: Array<{ id: string; name: string }>;
   middle: Array<{ id: string; name: string; largeId: string }>;
   updatedAt: ISODate;
-}
+};
 
 export type ExitCode =
   | 0

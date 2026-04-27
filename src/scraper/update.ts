@@ -17,7 +17,7 @@ export function resolveCategoryIds(
   const largeName = parts[0];
   const middleName = parts[1];
 
-  if (!largeName || !middleName) {
+  if (parts.length !== 2 || !largeName || !middleName) {
     throw new AppError(`category must be "大項目/中項目" (got: ${spec})`, EXIT.INVALID_INPUT);
   }
 

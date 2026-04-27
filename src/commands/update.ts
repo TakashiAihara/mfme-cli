@@ -1,5 +1,6 @@
 import { readFile } from "node:fs/promises";
 import { launch } from "../browser.ts";
+import { AppError } from "../errors.ts";
 import { META_FILE } from "../paths.ts";
 import { URL_CF } from "../scraper/urls.ts";
 import { resolveCategoryIds, updateTransaction } from "../scraper/update.ts";
@@ -18,7 +19,10 @@ async function loadMeta(): Promise<CategoryMeta> {
   try {
     return JSON.parse(await readFile(META_FILE, "utf8")) as CategoryMeta;
   } catch {
-    throw new Error(`meta not found. run \`mfme sync-meta\` first (${META_FILE})`);
+    throw new AppError(
+      `meta not found. run \`mfme sync-meta\` first (${META_FILE})`,
+      EXIT.INVALID_INPUT,
+    );
   }
 }
 
@@ -53,7 +57,7 @@ export async function runUpdate(args: UpdateArgs): Promise<number> {
     return EXIT.OK;
   } catch (e) {
     log.error(e instanceof Error ? e.message : String(e));
-    return EXIT.UNKNOWN;
+    return e instanceof AppError ? e.exitCode : EXIT.UNKNOWN;
   } finally {
     await handle.close();
   }

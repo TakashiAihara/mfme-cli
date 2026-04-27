@@ -1,6 +1,7 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
 import { launch } from "../browser.ts";
+import { AppError } from "../errors.ts";
 import { META_FILE } from "../paths.ts";
 import { fetchCategoryMeta } from "../scraper/categories.ts";
 import { log } from "../log.ts";
@@ -21,7 +22,7 @@ export async function runSyncMeta(): Promise<number> {
     return EXIT.OK;
   } catch (e) {
     log.error(e instanceof Error ? e.message : String(e));
-    return EXIT.ELEMENT_NOT_FOUND;
+    return e instanceof AppError ? e.exitCode : EXIT.UNKNOWN;
   } finally {
     await handle.close();
   }

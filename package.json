@@ -5,10 +5,10 @@
   "private": false,
   "type": "module",
   "bin": {
-    "mfme": "./bin/mfme.ts"
+    "mfme": "./src/cli.ts"
   },
   "scripts": {
-    "start": "bun run bin/mfme.ts",
+    "start": "bun run src/cli.ts",
     "typecheck": "tsc --noEmit",
     "install-browsers": "bun x playwright install chromium"
   },

@@ -12,6 +12,7 @@ export type ListArgs = {
 export async function runList(args: ListArgs): Promise<number> {
   const handle = await launch({ requireSession: true });
   const page = await handle.context.newPage();
+
   try {
     const txs = await fetchTransactions(page, { since: args.since, until: args.until });
     if (args.format === "ndjson") {

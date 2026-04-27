@@ -25,12 +25,7 @@ export type CategoryMeta = {
   updatedAt: ISODate;
 };
 
-export type ExitCode =
-  | 0
-  | 1
-  | 2
-  | 3
-  | 4;
+export type ExitCode = 0 | 1 | 2 | 3 | 4;
 
 export const EXIT = {
   OK: 0,

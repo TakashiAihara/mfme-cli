@@ -9,17 +9,17 @@ export async function fetchCategoryMeta(page: Page): Promise<CategoryMeta> {
   // 全大項目 (l_c_name) と各配下の中項目 (sub_menu > m_c_name) が一括描画される
   await page.click("tr.transaction_list .v_l_ctg");
   // サーバーからの async 描画待ち
-  await page.waitForFunction(
-    () => document.querySelectorAll("a.l_c_name").length > 0,
-    undefined,
-    { timeout: 10_000 },
-  );
+  await page.waitForFunction(() => document.querySelectorAll("a.l_c_name").length > 0, undefined, {
+    timeout: 10_000,
+  });
 
   const data = await page.evaluate(() => {
-    const large = Array.from(document.querySelectorAll<HTMLAnchorElement>("a.l_c_name")).map((a) => ({
-      id: a.getAttribute("id") ?? "",
-      name: (a.textContent ?? "").trim(),
-    }));
+    const large = Array.from(document.querySelectorAll<HTMLAnchorElement>("a.l_c_name")).map(
+      (a) => ({
+        id: a.getAttribute("id") ?? "",
+        name: (a.textContent ?? "").trim(),
+      }),
+    );
 
     const middle: Array<{ id: string; name: string; largeId: string }> = [];
     document.querySelectorAll<HTMLUListElement>("ul.sub_menu").forEach((ul) => {

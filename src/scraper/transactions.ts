@@ -19,7 +19,9 @@ function monthCursor(since: Date, until: Date): Array<{ from: string }> {
 export async function fetchTransactions(page: Page, opts: ListOptions): Promise<Transaction[]> {
   const now = new Date();
   const until = opts.until ? new Date(opts.until) : now;
-  const since = opts.since ? new Date(opts.since) : new Date(until.getFullYear(), until.getMonth(), 1);
+  const since = opts.since
+    ? new Date(opts.since)
+    : new Date(until.getFullYear(), until.getMonth(), 1);
   const months = monthCursor(since, until);
 
   // 初回に /cf を開いて CSRF token / jQuery / list_body を確立
@@ -39,8 +41,7 @@ export async function fetchTransactions(page: Page, opts: ListOptions): Promise<
 // それを eval することで `.list_body` に対象月の行が差し込まれる。
 async function fetchMonthIntoDom(page: Page, from: string): Promise<void> {
   const ok = await page.evaluate(async (fromDate) => {
-    const token =
-      document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content ?? "";
+    const token = document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content ?? "";
     const body = new URLSearchParams({ from: fromDate, service_id: "", account_id_hash: "" });
     const res = await fetch("/cf/fetch", {
       method: "POST",
@@ -72,29 +73,29 @@ async function parseRows(page: Page): Promise<Transaction[]> {
       const id = idAttr.replace(/^js-transaction-/, "");
       const hiddenId = q<HTMLInputElement>('input[name="user_asset_act[id]"]')?.value ?? id;
 
-      const dateAttr = q('td.date')?.getAttribute("data-table-sortable-value") ?? "";
+      const dateAttr = q("td.date")?.getAttribute("data-table-sortable-value") ?? "";
       const dateYmd = dateAttr.split("-")[0] ?? "";
       const isoDate = dateYmd.replaceAll("/", "-");
 
-      const title = (q('td.content span')?.textContent ?? "").trim();
-      const amountRaw = (q('td.amount .offset')?.textContent ?? "0").replace(/[^0-9-]/g, "");
-      const account = (q('td.note')?.textContent ?? "").trim();
-      const largeName = (q('.v_l_ctg')?.textContent ?? "").trim().replace(/\s+/g, " ");
-      const middleName = (q('.v_m_ctg')?.textContent ?? "").trim().replace(/\s+/g, " ");
-      const largeId = q<HTMLInputElement>('input.h_l_ctg')?.value ?? "";
-      const middleId = q<HTMLInputElement>('input.h_m_ctg')?.value ?? "";
-      const memo = (q('td.memo .noform span')?.textContent ?? "").trim();
-      const isTransfer = tr.classList.contains("transfer") || !!q('.icon-exchange.active');
-      const isManualEntry = !!q('input[name="user_asset_act[table_name]"][value="user_manual_cache_act"]');
+      const title = (q("td.content span")?.textContent ?? "").trim();
+      const amountRaw = (q("td.amount .offset")?.textContent ?? "0").replace(/[^0-9-]/g, "");
+      const account = (q("td.note")?.textContent ?? "").trim();
+      const largeName = (q(".v_l_ctg")?.textContent ?? "").trim().replace(/\s+/g, " ");
+      const middleName = (q(".v_m_ctg")?.textContent ?? "").trim().replace(/\s+/g, " ");
+      const largeId = q<HTMLInputElement>("input.h_l_ctg")?.value ?? "";
+      const middleId = q<HTMLInputElement>("input.h_m_ctg")?.value ?? "";
+      const memo = (q("td.memo .noform span")?.textContent ?? "").trim();
+      const isTransfer = tr.classList.contains("transfer") || !!q(".icon-exchange.active");
+      const isManualEntry = !!q(
+        'input[name="user_asset_act[table_name]"][value="user_manual_cache_act"]',
+      );
 
       return {
         id: hiddenId || id,
         date: isoDate,
         amount: Number(amountRaw) || 0,
         account,
-        category: largeName || middleName
-          ? { largeId, largeName, middleId, middleName }
-          : null,
+        category: largeName || middleName ? { largeId, largeName, middleId, middleName } : null,
         memo: memo || null,
         title,
         isTransfer,

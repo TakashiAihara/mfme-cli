@@ -1,10 +1,10 @@
 import type { Page } from "playwright";
 import type { Transaction } from "../types.ts";
 
-export interface ListOptions {
+export type ListOptions = {
   since?: string;
   until?: string;
-}
+};
 
 function monthCursor(since: Date, until: Date): Array<{ from: string }> {
   const out: Array<{ from: string }> = [];

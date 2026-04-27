@@ -1,16 +1,16 @@
 import { chromium, type Browser, type BrowserContext } from "playwright";
 import { loadSession } from "./session.ts";
 
-export interface BrowserHandle {
+export type BrowserHandle = {
   browser: Browser;
   context: BrowserContext;
   close(): Promise<void>;
-}
+};
 
-export interface LaunchOptions {
+export type LaunchOptions = {
   headed?: boolean;
   requireSession?: boolean;
-}
+};
 
 // headless chromium の素の UA だと ME 側で弾かれるので固定値で偽装する
 const UA =

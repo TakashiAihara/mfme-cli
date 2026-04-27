@@ -3,11 +3,11 @@ import { fetchTransactions } from "../scraper/transactions.ts";
 import { log } from "../log.ts";
 import { EXIT } from "../types.ts";
 
-export interface ListArgs {
+export type ListArgs = {
   since?: string;
   until?: string;
   format: "json" | "ndjson" | "csv";
-}
+};
 
 export async function runList(args: ListArgs): Promise<number> {
   const handle = await launch({ requireSession: true });

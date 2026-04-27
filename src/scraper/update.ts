@@ -1,11 +1,11 @@
 import type { Page } from "playwright";
 import type { CategoryMeta } from "../types.ts";
 
-export interface UpdatePayload {
+export type UpdatePayload = {
   memo?: string;
   largeCategoryId?: string;
   middleCategoryId?: string;
-}
+};
 
 export function resolveCategoryIds(
   meta: CategoryMeta,

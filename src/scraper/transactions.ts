@@ -6,23 +6,32 @@ export type ListOptions = {
   until?: string;
 };
 
-function monthCursor(since: Date, until: Date): Array<{ from: string }> {
+function todayYmd(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+function monthCursor(since: string, until: string): Array<{ from: string }> {
+  const [sy, sm] = since.split("-").map(Number) as [number, number];
+  const [uy, um] = until.split("-").map(Number) as [number, number];
   const out: Array<{ from: string }> = [];
-  const c = new Date(since.getFullYear(), since.getMonth(), 1);
-  while (c <= until) {
-    out.push({ from: `${c.getFullYear()}/${c.getMonth() + 1}/1` });
-    c.setMonth(c.getMonth() + 1);
+  let y = sy;
+  let m = sm;
+  while (y < uy || (y === uy && m <= um)) {
+    out.push({ from: `${y}/${m}/1` });
+    m++;
+    if (m > 12) {
+      m = 1;
+      y++;
+    }
   }
   return out;
 }
 
 export async function fetchTransactions(page: Page, opts: ListOptions): Promise<Transaction[]> {
-  const now = new Date();
-  const until = opts.until ? new Date(opts.until) : now;
-  const since = opts.since
-    ? new Date(opts.since)
-    : new Date(until.getFullYear(), until.getMonth(), 1);
-  const months = monthCursor(since, until);
+  const untilStr = opts.until ?? todayYmd();
+  const since = opts.since ?? `${untilStr.slice(0, 7)}-01`;
+  const months = monthCursor(since, untilStr);
 
   // 初回に /cf を開いて CSRF token / jQuery / list_body を確立
   await page.goto("https://moneyforward.com/cf", { waitUntil: "domcontentloaded" });
@@ -34,7 +43,7 @@ export async function fetchTransactions(page: Page, opts: ListOptions): Promise<
     const rows = await parseRows(page);
     results.push(...rows);
   }
-  return filterByDate(results, since, until);
+  return filterByDate(results, since, untilStr);
 }
 
 // POST /cf/fetch はサーバ側で「選択月」を切り替えつつ JS を返し、
@@ -105,11 +114,6 @@ async function parseRows(page: Page): Promise<Transaction[]> {
   );
 }
 
-function filterByDate(txs: Transaction[], since: Date, until: Date): Transaction[] {
-  // until は当日も含めたいので 23:59:59 まで広げる
-  const untilEnd = new Date(until.getFullYear(), until.getMonth(), until.getDate(), 23, 59, 59);
-  return txs.filter((tx) => {
-    const d = new Date(tx.date);
-    return d >= since && d <= untilEnd;
-  });
+function filterByDate(txs: Transaction[], since: string, until: string): Transaction[] {
+  return txs.filter((tx) => tx.date >= since && tx.date <= until);
 }

@@ -1,5 +1,6 @@
 import type { Page } from "playwright";
 import type { Transaction } from "../types.ts";
+import { assertAuthenticated } from "./auth.ts";
 
 export type ListOptions = {
   since?: string;
@@ -35,6 +36,7 @@ export async function fetchTransactions(page: Page, opts: ListOptions): Promise<
 
   // 初回に /cf を開いて CSRF token / jQuery / list_body を確立
   await page.goto("https://moneyforward.com/cf", { waitUntil: "domcontentloaded" });
+  await assertAuthenticated(page);
   await page.waitForSelector("tr.transaction_list", { timeout: 20_000 });
 
   const results: Transaction[] = [];

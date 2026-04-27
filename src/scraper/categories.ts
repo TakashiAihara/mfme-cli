@@ -1,8 +1,10 @@
 import type { Page } from "playwright";
 import type { CategoryMeta } from "../types.ts";
+import { assertAuthenticated } from "./auth.ts";
 
 export async function fetchCategoryMeta(page: Page): Promise<CategoryMeta> {
   await page.goto("https://moneyforward.com/cf", { waitUntil: "domcontentloaded" });
+  await assertAuthenticated(page);
   await page.waitForSelector("tr.transaction_list .v_l_ctg", { timeout: 20_000 });
 
   // 既存の取引行の大項目ドロップダウンをクリックすると

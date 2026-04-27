@@ -2,6 +2,7 @@ import { readFile } from "node:fs/promises";
 import { launch } from "../browser.ts";
 import { AppError } from "../errors.ts";
 import { META_FILE } from "../paths.ts";
+import { assertAuthenticated } from "../scraper/auth.ts";
 import { URL_CF } from "../scraper/urls.ts";
 import { resolveCategoryIds, updateTransaction } from "../scraper/update.ts";
 import { log } from "../log.ts";
@@ -52,6 +53,7 @@ export async function runUpdate(args: UpdateArgs): Promise<number> {
   const page = await handle.context.newPage();
   try {
     await page.goto(URL_CF, { waitUntil: "domcontentloaded" });
+    await assertAuthenticated(page);
     await updateTransaction(page, args.txId, payload);
     process.stdout.write(JSON.stringify({ ok: true, ...plan }, null, 2) + "\n");
     return EXIT.OK;

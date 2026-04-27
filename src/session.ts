@@ -13,6 +13,7 @@ export async function loadSession(): Promise<string | null> {
   } catch {
     return null;
   }
+
   await readFile(SESSION_FILE, "utf8");
   return SESSION_FILE;
 }

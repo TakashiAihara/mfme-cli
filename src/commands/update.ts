@@ -38,6 +38,7 @@ export async function runUpdate(args: UpdateArgs): Promise<number> {
   }
 
   const plan = { txId: args.txId, payload };
+
   if (args.dryRun) {
     process.stdout.write(JSON.stringify({ dryRun: true, ...plan }, null, 2) + "\n");
     return EXIT.OK;

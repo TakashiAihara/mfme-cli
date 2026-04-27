@@ -14,19 +14,23 @@ export function resolveCategoryIds(
   const parts = spec.split("/").map((s) => s.trim());
   const largeName = parts[0];
   const middleName = parts[1];
+
   if (!largeName || !middleName) {
     throw new Error(`category must be "大項目/中項目" (got: ${spec})`);
   }
+
   const large = meta.large.find((l) => l.name === largeName);
   if (!large || !large.id) {
     throw new Error(`unknown large category: ${largeName} (未観測の可能性あり。該当カテゴリの取引を1件でも含む月で sync-meta を再実行してください)`);
   }
+
   const middle = meta.middle.find(
     (m) => m.name === middleName && m.largeId === large.id,
   );
   if (!middle || !middle.id) {
     throw new Error(`unknown middle category: ${middleName} under ${largeName} (未観測の可能性あり)`);
   }
+
   return { largeCategoryId: large.id, middleCategoryId: middle.id };
 }
 

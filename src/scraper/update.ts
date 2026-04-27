@@ -21,14 +21,16 @@ export function resolveCategoryIds(
 
   const large = meta.large.find((l) => l.name === largeName);
   if (!large || !large.id) {
-    throw new Error(`unknown large category: ${largeName} (未観測の可能性あり。該当カテゴリの取引を1件でも含む月で sync-meta を再実行してください)`);
+    throw new Error(
+      `unknown large category: ${largeName} (未観測の可能性あり。該当カテゴリの取引を1件でも含む月で sync-meta を再実行してください)`,
+    );
   }
 
-  const middle = meta.middle.find(
-    (m) => m.name === middleName && m.largeId === large.id,
-  );
+  const middle = meta.middle.find((m) => m.name === middleName && m.largeId === large.id);
   if (!middle || !middle.id) {
-    throw new Error(`unknown middle category: ${middleName} under ${largeName} (未観測の可能性あり)`);
+    throw new Error(
+      `unknown middle category: ${middleName} under ${largeName} (未観測の可能性あり)`,
+    );
   }
 
   return { largeCategoryId: large.id, middleCategoryId: middle.id };
@@ -49,8 +51,10 @@ export async function updateTransaction(
       form.set("user_asset_act[id]", txId);
       form.set("user_asset_act[table_name]", "user_asset_act");
       if (payload.memo !== undefined) form.set("user_asset_act[memo]", payload.memo);
-      if (payload.largeCategoryId) form.set("user_asset_act[large_category_id]", payload.largeCategoryId);
-      if (payload.middleCategoryId) form.set("user_asset_act[middle_category_id]", payload.middleCategoryId);
+      if (payload.largeCategoryId)
+        form.set("user_asset_act[large_category_id]", payload.largeCategoryId);
+      if (payload.middleCategoryId)
+        form.set("user_asset_act[middle_category_id]", payload.middleCategoryId);
 
       const res = await fetch("/cf/update", {
         method: "POST",

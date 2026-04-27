@@ -13,10 +13,13 @@ export async function runLogin(): Promise<number> {
   await page.goto(URL_SIGN_IN);
 
   try {
-    await page.waitForURL((u) => {
-      const url = new URL(u.toString());
-      return url.host === HOST_ME && !url.pathname.startsWith("/sign_in");
-    }, { timeout: 10 * 60_000 });
+    await page.waitForURL(
+      (u) => {
+        const url = new URL(u.toString());
+        return url.host === HOST_ME && !url.pathname.startsWith("/sign_in");
+      },
+      { timeout: 10 * 60_000 },
+    );
   } catch {
     log.error("ログイン待機がタイムアウトしました");
     await browser.close();

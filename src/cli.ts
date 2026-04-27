@@ -7,10 +7,7 @@ import { runSyncMeta } from "../src/commands/sync-meta.ts";
 
 const program = new Command();
 
-program
-  .name("mfme")
-  .description("Unofficial Moneyforward ME CLI (UI automation)")
-  .version("0.1.0");
+program.name("mfme").description("Unofficial Moneyforward ME CLI (UI automation)").version("0.1.0");
 
 program
   .command("login")

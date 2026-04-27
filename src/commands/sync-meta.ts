@@ -15,7 +15,9 @@ export async function runSyncMeta(): Promise<number> {
     await mkdir(dirname(META_FILE), { recursive: true, mode: 0o700 });
     await writeFile(META_FILE, JSON.stringify(meta, null, 2), { mode: 0o600 });
 
-    log.info(`saved ${meta.large.length} large / ${meta.middle.length} middle categories to ${META_FILE}`);
+    log.info(
+      `saved ${meta.large.length} large / ${meta.middle.length} middle categories to ${META_FILE}`,
+    );
     return EXIT.OK;
   } catch (e) {
     log.error(e instanceof Error ? e.message : String(e));

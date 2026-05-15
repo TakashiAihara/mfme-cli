@@ -10,6 +10,13 @@ export type ListArgs = {
   format: "json" | "ndjson" | "csv";
 };
 
+export function toCsvRow(tx: import("../types.ts").Transaction): string {
+  const cat = tx.category ? `${tx.category.largeName}/${tx.category.middleName}` : "";
+  return [tx.id, tx.date, tx.amount, tx.account, cat, tx.memo ?? "", tx.title]
+    .map((v) => `"${String(v).replaceAll('"', '""')}"`)
+    .join(",");
+}
+
 export async function runList(args: ListArgs): Promise<number> {
   const handle = await launch({ requireSession: true });
   const page = await handle.context.newPage();
@@ -21,11 +28,7 @@ export async function runList(args: ListArgs): Promise<number> {
     } else if (args.format === "csv") {
       process.stdout.write("id,date,amount,account,category,memo,title\n");
       for (const tx of txs) {
-        const cat = tx.category ? `${tx.category.largeName}/${tx.category.middleName}` : "";
-        const row = [tx.id, tx.date, tx.amount, tx.account, cat, tx.memo ?? "", tx.title]
-          .map((v) => `"${String(v).replaceAll('"', '""')}"`)
-          .join(",");
-        process.stdout.write(row + "\n");
+        process.stdout.write(toCsvRow(tx) + "\n");
       }
     } else {
       process.stdout.write(JSON.stringify(txs, null, 2) + "\n");

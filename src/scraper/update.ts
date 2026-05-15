@@ -72,13 +72,22 @@ export async function updateTransaction(
         credentials: "same-origin",
       });
       const text = await res.text();
-      return { ok: res.ok, status: res.status, bodySnippet: text.slice(0, 300) };
+      let bodyError: string | null = null;
+      try {
+        const json = JSON.parse(text) as Record<string, unknown>;
+        if (typeof json["error"] === "string" && json["error"]) bodyError = json["error"];
+      } catch {
+        // non-JSON body — ignore
+      }
+      return { ok: res.ok, status: res.status, bodyError, bodySnippet: text.slice(0, 300) };
     },
     { txId, payload },
   );
-  if (!result.ok) {
+  if (!result.ok || result.bodyError) {
     throw new Error(
-      `update failed: HTTP ${result.status}${result.bodySnippet ? ` body=${result.bodySnippet}` : ""}`,
+      result.bodyError
+        ? `update rejected: ${result.bodyError}`
+        : `update failed: HTTP ${result.status}${result.bodySnippet ? ` body=${result.bodySnippet}` : ""}`,
     );
   }
 }

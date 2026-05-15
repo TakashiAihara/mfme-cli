@@ -65,14 +65,19 @@ async function fetchMonthIntoDom(page: Page, from: string): Promise<void> {
       },
       body: body.toString(),
     });
-    if (!res.ok) return { ok: false, status: res.status };
+    if (!res.ok) return { ok: false, error: `HTTP ${res.status}` };
+    const contentType = res.headers.get("content-type") ?? "";
     const text = await res.text();
-    // eslint-disable-next-line no-eval
+    if (!contentType.includes("javascript") || !text.includes("list_body")) {
+      return { ok: false, error: `unexpected response (content-type: ${contentType})` };
+    }
+    // ME の /cf/fetch は jQuery で .list_body を書き換える JS を返す。
+    // HTML パース不要で DOM 更新できる唯一の手段として eval を使用。
     (0, eval)(text);
-    return { ok: true, status: res.status };
+    return { ok: true, error: null };
   }, from);
   if (!ok.ok) {
-    throw new Error(`/cf/fetch failed: HTTP ${ok.status} (from=${from})`);
+    throw new Error(`/cf/fetch failed: ${ok.error} (from=${from})`);
   }
 }
 

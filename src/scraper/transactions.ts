@@ -12,7 +12,7 @@ function todayYmd(): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
-function monthCursor(since: string, until: string): Array<{ from: string }> {
+export function monthCursor(since: string, until: string): Array<{ from: string }> {
   const [sy, sm] = since.split("-").map(Number) as [number, number];
   const [uy, um] = until.split("-").map(Number) as [number, number];
   const out: Array<{ from: string }> = [];
@@ -121,6 +121,6 @@ async function parseRows(page: Page): Promise<Transaction[]> {
   );
 }
 
-function filterByDate(txs: Transaction[], since: string, until: string): Transaction[] {
+export function filterByDate(txs: Transaction[], since: string, until: string): Transaction[] {
   return txs.filter((tx) => tx.date >= since && tx.date <= until);
 }

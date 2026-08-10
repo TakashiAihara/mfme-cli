@@ -117,6 +117,10 @@ function parseUpdateLine(line: string, lineNo: number): ParsedLine {
   if (rawCategory !== undefined && rawCategory !== null && typeof rawCategory !== "string") {
     return { ok: false, txId, error: `line ${lineNo}: category must be "大項目/中項目" string` };
   }
+  // 空文字は「カテゴリ更新の指定漏れ」として弾く。黙って memo だけ更新すると気付けない
+  if (rawCategory === "") {
+    return { ok: false, txId, error: `line ${lineNo}: category must not be empty` };
+  }
 
   const memo = typeof rawMemo === "string" ? rawMemo : undefined;
   const category = typeof rawCategory === "string" ? rawCategory : undefined;
@@ -222,6 +226,9 @@ export async function runUpdateBatch(args: UpdateBatchArgs): Promise<number> {
       return EXIT.INVALID_INPUT;
     }
 
+    // meta 欠落は行ごとの失敗ではなく実行前提の不備なので、ここで中断して exit 3 を返す
+    // (単一 update と同じ扱い)。中途半端に memo 行だけ適用してから
+    // sync-meta のやり直しを促すより、何も書かずに止める方が復旧しやすい
     const meta = lines.some((line) => line.ok && line.category) ? await loadMeta() : null;
     const entries = resolveBatchEntries(lines, meta);
 
@@ -235,11 +242,18 @@ export async function runUpdateBatch(args: UpdateBatchArgs): Promise<number> {
       return batchExitCode(entries);
     }
 
+    // 適用対象が 1 件も無いならブラウザを起動しない。
+    // 起動 / 認証で落ちると行ごとの失敗理由を出力できなくなる
+    if (!entries.some((entry) => entry.ok)) {
+      for (const entry of entries) process.stdout.write(JSON.stringify(entry) + "\n");
+      return batchExitCode(entries);
+    }
+
     log.info(`${entries.length} 行を処理します (ブラウザ起動は 1 回)`);
 
     const handle = await launch({ requireSession: true });
-    const page = await handle.context.newPage();
     try {
+      const page = await handle.context.newPage();
       await page.goto(URL_CF, { waitUntil: "domcontentloaded" });
       await assertAuthenticated(page);
 

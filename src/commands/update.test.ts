@@ -102,6 +102,16 @@ describe("parseUpdateLines", () => {
 
     expect(lines[0]).toMatchObject({ ok: false, txId: "tx_1" });
   });
+
+  test("空文字の category は memo があっても失敗 (黙って無視しない)", () => {
+    const lines = parseUpdateLines('{"txId":"tx_1","memo":"a","category":""}');
+
+    expect(lines[0]).toMatchObject({
+      ok: false,
+      txId: "tx_1",
+      error: expect.stringContaining("category must not be empty"),
+    });
+  });
 });
 
 describe("resolveBatchEntries", () => {

@@ -235,7 +235,7 @@ export async function runUpdateBatch(args: UpdateBatchArgs): Promise<number> {
       return batchExitCode(entries);
     }
 
-    log.info(`${entries.length} 件を 1 ブラウザセッションで更新します`);
+    log.info(`${entries.length} 行を処理します (ブラウザ起動は 1 回)`);
 
     const handle = await launch({ requireSession: true });
     const page = await handle.context.newPage();

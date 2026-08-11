@@ -22,7 +22,16 @@ mise trust           # 初回のみ
 mise install         # Bun インストール
 bun install
 bun run install-browsers   # Playwright Chromium
+bun run install-bin        # `mfme` を PATH に載せる (任意)
 ```
+
+`install-bin` は `src/cli.ts` に実行ビットを立て、`~/.local/bin/mfme` から
+このリポジトリへ symlink を張る。以降は `mfme <command>` で呼べる。
+
+- 置き場所は `MFME_BIN_DIR` で変えられる (default `~/.local/bin`)
+- symlink なので `git pull` した内容がそのまま反映される。**リポジトリを移動・削除すると壊れる**
+- 単一バイナリ化 (`bun build --compile`) はしない。Playwright が native の browser 実体に依存しており、バンドルしても動かないため
+- symlink 経由の起動は shebang (`#!/usr/bin/env bun`) が拾う PATH 上の Bun を使う。`.mise.toml` の pin は効かない
 
 ## Commands
 

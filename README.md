@@ -134,6 +134,22 @@ mfme list --since 2026-01-01 --format ndjson \
   | mfme update --stdin > result.ndjson
 ```
 
+### memo の追記
+
+`memo` は常に上書きなので、追記したい場合は `list` で取得した現在の値に足してから流す。
+`--stdin` は NDJSON を受けるだけなので、この組み立ては `jq` 側で完結する。
+
+```sh
+mfme list --since 2026-01-01 --format ndjson \
+  | jq -c '{txId: .id, memo: ((.memo // "") + " 追記テキスト")}' \
+  | mfme update --stdin
+```
+
+`memo` が未設定の取引は `list` の出力で `null` になるので `// ""` で空文字に落とす。
+先頭の余分なスペースが気になる場合は `| ltrimstr(" ")` を挟む。
+
+読んでから書くまでの間に ME 側で memo が変わっていると、その変更は上書きされる。
+
 ## 制約
 
 1. 連携口座取引は読み取り・メモ/カテゴリ編集のみ。金額/日付は不変。

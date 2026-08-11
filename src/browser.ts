@@ -1,5 +1,7 @@
 import { chromium, type Browser, type BrowserContext } from "playwright";
+import { AppError } from "./errors.ts";
 import { loadSession } from "./session.ts";
+import { EXIT } from "./types.ts";
 
 export type BrowserHandle = {
   browser: Browser;
@@ -23,7 +25,9 @@ export async function launch(opts: LaunchOptions = {}): Promise<BrowserHandle> {
 
   if (opts.requireSession && !sessionPath) {
     await browser.close();
-    throw new Error("session not found. run `mfme login` first.");
+    // セッション切れ (assertAuthenticated) と同じ「認証まわりで実行できない」状態なので
+    // 同じ AUTH_FAILED を返す。素の Error だと呼び出し側で UNKNOWN(4) に落ちる
+    throw new AppError("session not found. run `mfme login` first.", EXIT.AUTH_FAILED);
   }
 
   const context = await browser.newContext({

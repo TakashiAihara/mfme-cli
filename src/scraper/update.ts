@@ -60,8 +60,10 @@ export async function updateTransaction(
       if (payload.middleCategoryId)
         form.set("user_asset_act[middle_category_id]", payload.middleCategoryId);
 
+      // ME の UI は PUT で送る。DOM 上の form は method="post" だが Rails の
+      // method override で PUT になっており、POST だと routing に無く 404 が返る
       const res = await fetch("/cf/update", {
-        method: "POST",
+        method: "PUT",
         headers: {
           "X-CSRF-Token": token,
           "Content-Type": "application/x-www-form-urlencoded",
@@ -72,12 +74,15 @@ export async function updateTransaction(
         credentials: "same-origin",
       });
       const text = await res.text();
+      // 成功時の応答は text/javascript (Rails の format.js) なので JSON にはならない。
+      // 成否は res.ok で判定し、この JSON パースは 404 のように JSON で返るエラーの
+      // メッセージを拾うためだけに使う
       let bodyError: string | null = null;
       try {
         const json = JSON.parse(text) as Record<string, unknown>;
         if (typeof json["error"] === "string" && json["error"]) bodyError = json["error"];
       } catch {
-        // non-JSON body — ignore
+        // text/javascript の正常応答。エラー判定には使わない
       }
       return { ok: res.ok, status: res.status, bodyError, bodySnippet: text.slice(0, 300) };
     },

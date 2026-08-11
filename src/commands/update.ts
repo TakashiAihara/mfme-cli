@@ -71,8 +71,8 @@ export async function runUpdate(args: UpdateArgs): Promise<number> {
     }
 
     const handle = await launch({ requireSession: true });
-    const page = await handle.context.newPage();
     try {
+      const page = await handle.context.newPage();
       await page.goto(URL_CF, { waitUntil: "domcontentloaded" });
       await assertAuthenticated(page);
       await updateTransaction(page, args.txId, payload);

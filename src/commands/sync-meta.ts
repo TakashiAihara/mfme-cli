@@ -8,22 +8,24 @@ import { log } from "../log.ts";
 import { EXIT } from "../types.ts";
 
 export async function runSyncMeta(): Promise<number> {
-  const handle = await launch({ requireSession: true });
-  const page = await handle.context.newPage();
   try {
-    const meta = await fetchCategoryMeta(page);
+    const handle = await launch({ requireSession: true });
+    try {
+      const page = await handle.context.newPage();
+      const meta = await fetchCategoryMeta(page);
 
-    await mkdir(dirname(META_FILE), { recursive: true, mode: 0o700 });
-    await writeFile(META_FILE, JSON.stringify(meta, null, 2), { mode: 0o600 });
+      await mkdir(dirname(META_FILE), { recursive: true, mode: 0o700 });
+      await writeFile(META_FILE, JSON.stringify(meta, null, 2), { mode: 0o600 });
 
-    log.info(
-      `saved ${meta.large.length} large / ${meta.middle.length} middle categories to ${META_FILE}`,
-    );
-    return EXIT.OK;
+      log.info(
+        `saved ${meta.large.length} large / ${meta.middle.length} middle categories to ${META_FILE}`,
+      );
+      return EXIT.OK;
+    } finally {
+      await handle.close();
+    }
   } catch (e) {
     log.error(e instanceof Error ? e.message : String(e));
     return e instanceof AppError ? e.exitCode : EXIT.UNKNOWN;
-  } finally {
-    await handle.close();
   }
 }

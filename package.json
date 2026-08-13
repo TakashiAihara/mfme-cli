@@ -9,6 +9,7 @@
   "type": "module",
   "scripts": {
     "start": "bun run src/cli.ts",
+    "install-bin": "BIN=\"${MFME_BIN_DIR:-$HOME/.local/bin}\"; mkdir -p \"$BIN\" && chmod +x src/cli.ts && ln -sfn \"$PWD/src/cli.ts\" \"$BIN/mfme\" && echo \"installed: $BIN/mfme -> $PWD/src/cli.ts\"",
     "typecheck": "tsgo --noEmit",
     "lint": "oxlint .",
     "format": "oxfmt .",

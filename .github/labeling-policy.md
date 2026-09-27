@@ -15,17 +15,18 @@ Issue / PR にはこのポリシーに従ってラベルを付与する。`/ta.g
 
 ### type/ — 変更種別（1 つ必須）
 
-- `type/feat` — 新機能追加
-- `type/fix` — バグ修正
-- `type/refactor` — 挙動を変えないリファクタ
+- `type/enhancement` — 新機能追加・改善
+- `type/bug` — バグ修正
+- `type/refactoring` — 挙動を変えないリファクタ
 - `type/tech-debt` — 技術的負債解消
-- `type/docs` — ドキュメントのみの変更
+- `type/documentation` — ドキュメントのみの変更
 - `type/test` — テスト追加・修正
 - `type/chore` — ビルド・依存・メタ情報
 - `type/security` — セキュリティ関連
 
 ### priority/ — 優先度（Issue 必須 / PR は任意）
 
+- `priority/critical`
 - `priority/high`
 - `priority/medium`
 - `priority/low`
@@ -38,14 +39,17 @@ Issue / PR にはこのポリシーに従ってラベルを付与する。`/ta.g
 
 ### needs/ — 未解決事項（必要時のみ）
 
+- `needs/information` — 追加の情報が必要
 - `needs/investigation` — 原因・影響範囲を要調査
-- `needs/design` — 実装前に方針合意が必要
 - `needs/reproduction` — 再現手順の確認が必要
 
 ### status/ — PR ステータス（必要時のみ）
 
 - `status/blocked` — 他の作業待ち
-- `status/wip` — Draft / 作業途中
+- `status/in-progress` — Draft / 作業途中
+- `status/needs-discussion` — 実装前に方針合意が必要
+- `status/needs-testing` — 手動・環境での確認待ち
+- `status/ready-for-review` — レビュー待ち
 
 ### changed/ — labeler による自動付与用（将来）
 
@@ -56,7 +60,7 @@ Issue / PR にはこのポリシーに従ってラベルを付与する。`/ta.g
 
 ## デフォルトラベル
 
-`bug` / `enhancement` / `documentation` / `good first issue` / `help wanted` / `question` / `invalid` / `wontfix` / `duplicate` は残すが、原則として上記 prefix ラベルを優先する。
+`type/` `priority/` `effort/` `status/` `needs/` は claude-config の既定 (delivery-foundation の汎用構成) に揃えている。`bug` / `enhancement` / `documentation` / `question` はそれぞれ `type/bug` / `type/enhancement` / `type/documentation` / `needs/information` に rename 済み。`good first issue` / `help wanted` / `invalid` / `wontfix` / `duplicate` は残すが使わない。
 
 ## 運用ルール
 

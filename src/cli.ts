@@ -4,6 +4,7 @@ import { runLogin } from "../src/commands/login.ts";
 import { runList, toListFilter, type ListFilter } from "../src/commands/list.ts";
 import { runUpdate, runUpdateBatch } from "../src/commands/update.ts";
 import { runSyncMeta } from "../src/commands/sync-meta.ts";
+import { runLiabilities } from "../src/commands/liabilities.ts";
 
 const program = new Command();
 
@@ -53,6 +54,19 @@ program
       process.exit(await runList({ since: opts.since, until: opts.until, format, filter }));
     },
   );
+
+program
+  .command("liabilities")
+  .description("負債の明細を取得して stdout に出力")
+  .option("--format <format>", "json|ndjson|csv", "json")
+  .action(async (opts: { format?: string }) => {
+    const format = (opts.format ?? "json") as "json" | "ndjson" | "csv";
+    if (!["json", "ndjson", "csv"].includes(format)) {
+      process.stderr.write(`invalid --format: ${format}\n`);
+      process.exit(3);
+    }
+    process.exit(await runLiabilities({ format }));
+  });
 
 program
   .command("update")

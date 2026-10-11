@@ -26,3 +26,21 @@ for (const command of ["sync-meta", "login"]) {
     );
   }, 30_000);
 }
+
+// commander が負数を値として受けるかは CLI を通さないと分からない。入力検証はブラウザ起動前に終わる
+test("--max-amount の負数を値として受け、不正な --min-amount で exit 3", () => {
+  const root = resolve(import.meta.dir, "..");
+  const proc = Bun.spawnSync([
+    "bun",
+    "run",
+    join(root, "src/cli.ts"),
+    "list",
+    "--max-amount",
+    "-1000",
+    "--min-amount",
+    "x",
+  ]);
+
+  expect(proc.exitCode).toBe(3);
+  expect(proc.stderr.toString()).toBe("invalid --min-amount: x\n");
+}, 30_000);

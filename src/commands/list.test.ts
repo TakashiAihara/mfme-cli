@@ -157,26 +157,32 @@ describe("filterTransactions", () => {
     ]);
   });
 
+  // a0 だけが全条件を満たし、a1〜a5 はそれぞれ 1 条件だけ外す。どの条件を外しても結果が変わる
   test("複合フィルタは AND で効く", () => {
-    const got = filterTransactions(fixtures, {
+    const a0: Transaction = {
+      ...fixtures[0]!,
+      id: "a0",
+      account: "三井住友銀行",
+      category: null,
+      amount: -1000,
+      isTransfer: false,
+    };
+    const all = [
+      a0,
+      { ...a0, id: "a1", account: "楽天カード" },
+      { ...a0, id: "a2", isTransfer: true },
+      { ...a0, id: "a3", category: cat("食費", "外食") },
+      { ...a0, id: "a4", amount: -6000 },
+      { ...a0, id: "a5", amount: 500 },
+    ];
+    const got = filterTransactions(all, {
       account: "三井",
-      transfer: true,
-      uncategorized: false,
-      minAmount: -6000,
-      maxAmount: 2000,
-    });
-    expect(ids(got)).toEqual(["t1", "t3"]);
-  });
-
-  test("複合フィルタ (振替除外 + 未分類 + 金額範囲)", () => {
-    const got = filterTransactions(fixtures, {
-      account: "カード",
       transfer: false,
       uncategorized: true,
-      minAmount: -1000,
+      minAmount: -5000,
       maxAmount: -100,
     });
-    expect(ids(got)).toEqual(["t2"]);
+    expect(ids(got)).toEqual(["a0"]);
   });
 });
 
@@ -241,5 +247,11 @@ describe("toListFilter", () => {
   test("min > max は INVALID_INPUT(3)、min = max は通る", () => {
     expect(() => toListFilter({ minAmount: "10", maxAmount: "5" })).toThrow(AppError);
     expect(toListFilter({ minAmount: "5", maxAmount: "5" }).minAmount).toBe(5);
+  });
+});
+
+describe("toListFilter の --account", () => {
+  test("空文字は INVALID_INPUT(3)", () => {
+    expect(() => toListFilter({ account: "" })).toThrow("invalid --account: empty");
   });
 });

@@ -48,6 +48,10 @@ function parseAmount(flag: string, raw: string | undefined): number | undefined 
 }
 
 export function toListFilter(o: ListFilterOptions): ListFilter {
+  // 空文字はどの口座名にも部分一致して何も絞らないので、指定の誤りとして止める
+  if (o.account !== undefined && o.account === "") {
+    throw new AppError("invalid --account: empty", EXIT.INVALID_INPUT);
+  }
   const minAmount = parseAmount("--min-amount", o.minAmount);
   const maxAmount = parseAmount("--max-amount", o.maxAmount);
   if (minAmount !== undefined && maxAmount !== undefined && minAmount > maxAmount) {

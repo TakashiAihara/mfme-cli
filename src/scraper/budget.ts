@@ -6,6 +6,23 @@ import { parseYen, readRows, type RawCell, type RawRow } from "./table.ts";
 import { URL_SPENDING_SUMMARIES } from "./urls.ts";
 
 const BUDGET_TABLE = "#budgets-progress table tr";
+// 表の上に出る集計期間 ("2026/09/01-2026/09/30")。2026-10-11 に実ページで確認
+const BUDGET_RANGE = ".date_range .msg";
+
+// 月の開始日を 1 日以外にしていると期間が 2 か月にまたがり、--month の月とどう対応するか確かめられないので止める
+export function monthFromRange(text: string): string {
+  const m = /^(\d{4})\/(\d{2})\/(\d{2})\s*-\s*(\d{4})\/(\d{2})\/\d{2}$/.exec(text.trim());
+  if (m === null) {
+    throw new AppError(`unexpected budget period: ${JSON.stringify(text)}`, EXIT.ELEMENT_NOT_FOUND);
+  }
+  if (m[3] !== "01" || m[1] !== m[4] || m[2] !== m[5]) {
+    throw new AppError(
+      `budget period is not a calendar month (month start day changed?): ${text.trim()}`,
+      EXIT.ELEMENT_NOT_FOUND,
+    );
+  }
+  return `${m[1]}/${m[2]}`;
+}
 
 function cell(row: RawRow, tag: "th" | "td", cls?: string): RawCell | undefined {
   return row.cells.find((c) => c.tag === tag && (cls === undefined || c.classes.includes(cls)));
@@ -72,13 +89,16 @@ export function parseBudget(rows: RawRow[], monthLabel: string): Budget {
     throw new AppError("budget total row not found", EXIT.ELEMENT_NOT_FOUND);
   }
 
-  // 小計は配下の行の合計と一致する (2026-10-11 に 4 か月分で確認)。class が変わって行を読み落とすと
-  // 区分が空のまま成功してしまうので、合計が合わなければ止める
+  // 小計は配下の行の合計と一致する (使った金額・残りとも、2026-10-11 に 4 か月分で確認)。class が変わって
+  // 行を読み落とすと区分が空のまま成功してしまうので、合計が合わなければ止める。使った金額が 0 円の行の
+  // 読み落としは残りの側で捕まる
   const sum = (xs: number[]) => xs.reduce((a, b) => a + b, 0);
   if (
     groups.length === 0 ||
     total.spent !== sum(groups.map((g) => g.total.spent)) ||
-    groups.some((g) => g.total.spent !== sum(g.categories.map((c) => c.spent)))
+    groups.some((g) => g.total.spent !== sum(g.categories.map((c) => c.spent))) ||
+    total.remaining !== sum(groups.map((g) => g.total.remaining)) ||
+    groups.some((g) => g.total.remaining !== sum(g.categories.map((c) => c.remaining)))
   ) {
     throw new AppError("budget rows do not add up to their totals", EXIT.ELEMENT_NOT_FOUND);
   }
@@ -125,17 +145,15 @@ export async function fetchBudget(
       EXIT.ELEMENT_NOT_FOUND,
     );
   }
-  // offset_month は今月から何か月前かを数える (2026-10-11 に確認)。意味が変わっても別の月を黙って返さないよう、表示中の月の見出しを確かめる
-  const container = await page.$("#main-container");
-  const text = (await container?.textContent()) ?? "";
-  const labels = [...new Set(text.match(/\d{4}\/\d{2}/g) ?? [])];
-  if (labels.length > 1) {
+  // offset_month は今月から何か月前かを数える (2026-10-11 に確認)。意味が変わっても別の月を黙って返さないよう、表示中の集計期間を確かめる
+  const ranges = await page.$$(BUDGET_RANGE);
+  if (ranges.length !== 1) {
     throw new AppError(
-      `budget page month label is ambiguous: ${JSON.stringify(labels)}`,
+      `budget period not found: expected 1 ${BUDGET_RANGE}, got ${ranges.length}`,
       EXIT.ELEMENT_NOT_FOUND,
     );
   }
-  const monthLabel = labels[0] ?? "";
+  const monthLabel = monthFromRange((await ranges[0]!.textContent()) ?? "");
   const budget = parseBudget(await readRows(page, BUDGET_TABLE), monthLabel);
   if (budget.month !== expectedMonth) {
     throw new AppError(

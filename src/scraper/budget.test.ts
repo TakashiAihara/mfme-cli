@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { AppError } from "../errors.ts";
-import { fetchBudget, monthOffset, parseBudget, toBudgetLines } from "./budget.ts";
+import { fetchBudget, monthFromRange, monthOffset, parseBudget, toBudgetLines } from "./budget.ts";
 import type { RawRow } from "./table.ts";
 
 const th = (text: string) => ({ tag: "th" as const, classes: [], text });
@@ -151,7 +151,7 @@ describe("parseBudget の区分", () => {
 });
 
 describe("fetchBudget", () => {
-  function fakePage(opts: { url?: string; root: boolean; label: string; rows: RawRow[] }) {
+  function fakePage(opts: { url?: string; root: boolean; ranges: string[]; rows: RawRow[] }) {
     const calls: string[] = [];
     const page = {
       goto: async (u: string) => {
@@ -160,9 +160,11 @@ describe("fetchBudget", () => {
       url: () => opts.url ?? "https://moneyforward.com/spending_summaries",
       $: async (sel: string) => {
         calls.push(`$ ${sel}`);
-        if (sel === "#main-container")
-          return { textContent: async () => `前月 ${opts.label} 予算` };
         return opts.root ? {} : null;
+      },
+      $$: async (sel: string) => {
+        calls.push(`$$ ${sel}`);
+        return opts.ranges.map((t) => ({ textContent: async () => t }));
       },
       $$eval: async (sel: string) => {
         calls.push(`$$eval ${sel}`);
@@ -172,65 +174,90 @@ describe("fetchBudget", () => {
     return { page: page as unknown as Parameters<typeof fetchBudget>[0], calls };
   }
 
-  test("offset_month を付けて開き、表示中の月が合えば返す", async () => {
-    const { page, calls } = fakePage({ root: true, label: "2026/09", rows });
-    expect((await fetchBudget(page, 1, "2026-09")).month).toBe("2026-09");
+  async function rejection(p: Promise<unknown>): Promise<AppError> {
+    try {
+      await p;
+    } catch (e) {
+      return e as AppError;
+    }
+    throw new Error("did not reject");
+  }
+
+  test("offset_month を付けて開き、集計期間が求めた月なら表の中身をそのまま返す", async () => {
+    const { page, calls } = fakePage({ root: true, ranges: ["2026/09/01-2026/09/30"], rows });
+    expect(await fetchBudget(page, 1, "2026-09")).toEqual(parseBudget(rows, "2026/09"));
     expect(calls).toEqual([
       "goto https://moneyforward.com/spending_summaries?offset_month=1",
       "$ #budgets-progress",
-      "$ #main-container",
+      "$$ .date_range .msg",
       "$$eval #budgets-progress table tr",
     ]);
   });
 
-  test("同じ年月の表記が何度出ても 1 種類として通す", async () => {
-    const { page } = fakePage({ root: true, label: "2026/09 2026/09", rows });
-    expect((await fetchBudget(page, 1, "2026-09")).month).toBe("2026-09");
+  test("集計期間が求めた月と違えば ELEMENT_NOT_FOUND(2)", async () => {
+    const { page } = fakePage({ root: true, ranges: ["2026/08/01-2026/08/31"], rows });
+    const e = await rejection(fetchBudget(page, 1, "2026-09"));
+    expect(e.exitCode).toBe(2);
+    expect(e.message).toBe("budget page shows 2026-08, expected 2026-09");
   });
 
-  test("ページに年月の表記が 2 種類以上あれば ELEMENT_NOT_FOUND(2)", async () => {
-    const { page } = fakePage({ root: true, label: "2026/09 2026/08", rows });
-    let got: unknown;
-    try {
-      await fetchBudget(page, 1, "2026-09");
-    } catch (e) {
-      got = e;
-    }
-    expect((got as AppError).exitCode).toBe(2);
-    expect((got as AppError).message).toBe(
-      'budget page month label is ambiguous: ["2026/09","2026/08"]',
-    );
-  });
-
-  test("表示中の月が求めた月と違えば ELEMENT_NOT_FOUND(2)", async () => {
-    const { page } = fakePage({ root: true, label: "2026/08", rows });
-    await expect(fetchBudget(page, 1, "2026-09")).rejects.toThrow(
-      "budget page shows 2026-08, expected 2026-09",
-    );
-  });
+  for (const ranges of [[], ["2026/09/01-2026/09/30", "2026/09/01-2026/09/30"]]) {
+    test(`集計期間の要素が ${ranges.length} 個なら ELEMENT_NOT_FOUND(2)`, async () => {
+      const { page } = fakePage({ root: true, ranges, rows });
+      const e = await rejection(fetchBudget(page, 1, "2026-09"));
+      expect(e.exitCode).toBe(2);
+      expect(e.message).toBe(
+        `budget period not found: expected 1 .date_range .msg, got ${ranges.length}`,
+      );
+    });
+  }
 
   test("ログイン画面に飛ばされたら、表が無くても AUTH_FAILED(1)", async () => {
     const { page } = fakePage({
       root: false,
-      label: "",
+      ranges: [],
       rows: [],
       url: "https://moneyforward.com/sign_in",
     });
-    let got: unknown;
-    try {
-      await fetchBudget(page, 0, "2026-10");
-    } catch (e) {
-      got = e;
-    }
-    expect((got as AppError).exitCode).toBe(1);
+    expect((await rejection(fetchBudget(page, 0, "2026-10"))).exitCode).toBe(1);
   });
 
   test("#budgets-progress が無ければ ELEMENT_NOT_FOUND(2)", async () => {
-    const { page } = fakePage({ root: false, label: "2026/10", rows });
-    await expect(fetchBudget(page, 0, "2026-10")).rejects.toThrow(
-      "budget page layout changed: #budgets-progress not found",
-    );
+    const { page } = fakePage({ root: false, ranges: ["2026/10/01-2026/10/31"], rows });
+    const e = await rejection(fetchBudget(page, 0, "2026-10"));
+    expect(e.exitCode).toBe(2);
+    expect(e.message).toBe("budget page layout changed: #budgets-progress not found");
   });
+});
+
+describe("monthFromRange", () => {
+  test("暦の 1 か月の期間なら YYYY/MM を返す", () => {
+    expect(monthFromRange("2026/09/01-2026/09/30")).toBe("2026/09");
+    expect(monthFromRange(" 2026/02/01 - 2026/02/28 ")).toBe("2026/02");
+  });
+
+  for (const bad of ["", "2026/09", "2026/09/01", "Updated 2026/09/01", "2026/09/01-2026/09"]) {
+    test(`期間の形でない ${JSON.stringify(bad)} は ELEMENT_NOT_FOUND(2)`, () => {
+      const e = caught(() => monthFromRange(bad));
+      expect(e.exitCode).toBe(2);
+      expect(e.message).toBe(`unexpected budget period: ${JSON.stringify(bad)}`);
+    });
+  }
+
+  for (const range of [
+    "2026/08/25-2026/09/24",
+    "2026/09/02-2026/09/30",
+    "2025/12/01-2026/12/31",
+    "2026/09/01-2026/10/31",
+  ]) {
+    test(`暦の月でない期間 ${range} は ELEMENT_NOT_FOUND(2)`, () => {
+      const e = caught(() => monthFromRange(range));
+      expect(e.exitCode).toBe(2);
+      expect(e.message).toBe(
+        `budget period is not a calendar month (month start day changed?): ${range}`,
+      );
+    });
+  }
 });
 
 describe("parseBudget の合計の突き合わせ", () => {
@@ -249,6 +276,25 @@ describe("parseBudget の合計の突き合わせ", () => {
       expect(e.message).toBe("budget rows do not add up to their totals");
     });
   }
+
+  // 月初は使った金額が 0 円の大項目が多く、使った金額の合計だけでは読み落としに気づけない
+  test("使った金額 0 円の大項目が落ちても、残りの合計で ELEMENT_NOT_FOUND(2)", () => {
+    const zeroSpent = [
+      line(["total_expense"], "支出全体", "0円", "30,000円"),
+      line(["budget_type_total_expense", "variable_type"], "手元で管理するお金", "0円", "30,000円"),
+      line(["large_category_expense"], "食費", "0円", "20,000円"),
+      line(["large_category_expense"], "日用品", "0円", "10,000円"),
+    ];
+    expect(parseBudget(zeroSpent, "2026/09").groups[0]!.categories).toHaveLength(2);
+    const e = caught(() => parseBudget(zeroSpent.slice(0, 3), "2026/09"));
+    expect(e.message).toBe("budget rows do not add up to their totals");
+  });
+
+  test("区分の残りは合っていても、支出全体の残りと合わなければ ELEMENT_NOT_FOUND(2)", () => {
+    const wrongTotal = line(["total_expense"], "支出全体", "150,000円", "1円");
+    const e = caught(() => parseBudget([wrongTotal, ...rows.slice(3)], "2026/09"));
+    expect(e.message).toBe("budget rows do not add up to their totals");
+  });
 
   test("支出全体が 0 円でも、区分が 1 つも無ければ ELEMENT_NOT_FOUND(2)", () => {
     const e = caught(() =>

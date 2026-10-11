@@ -41,14 +41,25 @@ export function tableToRecords(rows: RawRow[]): Array<Record<string, string>> {
   return rows
     .slice(headerIndex(rows) + 1)
     .filter((r) => r.cells.some((c) => c.tag === "td"))
-    .map((r) => Object.fromEntries(headers.map((h, j) => [h, normalize(r.cells[j]?.text ?? "")])));
+    .map((r) => {
+      // 列が欠けた行を空文字で埋めると、壊れた行が「値が空の行」として通ってしまう
+      if (r.cells.length < headers.length) {
+        throw new AppError(
+          `table row has ${r.cells.length} cells, header has ${headers.length}`,
+          EXIT.ELEMENT_NOT_FOUND,
+        );
+      }
+      return Object.fromEntries(headers.map((h, j) => [h, normalize(r.cells[j]!.text)]));
+    });
 }
 
-// 金額は円の整数。Number() だと "1e3" や "0x10" が通り、桁が多いと丸められるので形と安全な範囲で絞る
+// 金額は円の整数。Number() だと "1e3" や "0x10" が通り、桁が多いと丸められるので形と安全な範囲で絞る。
+// 桁区切りは 3 桁ごとの形まで見る ("1,23円" を 123 と読まない)
 export function parseYen(text: string): number {
-  const digits = text.replace(/\s+/g, "").replace(/,/g, "").replace(/円$/, "");
+  const trimmed = text.trim();
+  const digits = trimmed.replace(/,/g, "").replace(/円$/, "");
   const value = Number(digits);
-  if (!/^-?\d+$/.test(digits) || !Number.isSafeInteger(value)) {
+  if (!/^-?(\d+|\d{1,3}(,\d{3})+)円?$/.test(trimmed) || !Number.isSafeInteger(value)) {
     throw new AppError(`unexpected amount: ${JSON.stringify(text)}`, EXIT.ELEMENT_NOT_FOUND);
   }
   return value;

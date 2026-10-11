@@ -33,9 +33,15 @@ describe("tableToRecords", () => {
     expect(tableToRecords(rows)).toEqual([{ "名称・説明": "ご利用 残高" }]);
   });
 
-  test("見出しより前の行は捨て、セルが足りない行は空文字で埋める", () => {
-    const rows = [row(td("前置き")), row(th("A"), th("B")), row(td("a1"))];
-    expect(tableToRecords(rows)).toEqual([{ A: "a1", B: "" }]);
+  test("見出しより前の行は捨てる", () => {
+    const rows = [row(td("前置き")), row(th("A"), th("B")), row(td("a1"), td("b1"))];
+    expect(tableToRecords(rows)).toEqual([{ A: "a1", B: "b1" }]);
+  });
+
+  test("セルが見出しより足りない行は ELEMENT_NOT_FOUND(2)", () => {
+    const e = caught(() => tableToRecords([row(th("A"), th("B")), row(td("a1"))]));
+    expect(e.exitCode).toBe(2);
+    expect(e.message).toBe("table row has 1 cells, header has 2");
   });
 
   test("見出しの後に来る th だけの行 (小見出し) は record にしない", () => {
@@ -65,7 +71,19 @@ describe("parseYen", () => {
     expect(parseYen("8,800")).toBe(8800);
   });
 
-  for (const bad of ["", "円", "---", "1.5円", "abc円", "1,2a3円", "9,007,199,254,740,993円"]) {
+  for (const bad of [
+    "",
+    "円",
+    "---",
+    "1.5円",
+    "abc円",
+    "1,2a3円",
+    "9,007,199,254,740,993円",
+    "1,23円",
+    "1 2円",
+    "1,円",
+    "1,2345円",
+  ]) {
     test(`金額でない ${JSON.stringify(bad)} は ELEMENT_NOT_FOUND(2)`, () => {
       const e = caught(() => parseYen(bad));
       expect(e).toBeInstanceOf(AppError);

@@ -62,6 +62,7 @@ mfme list --uncategorized       # 未分類 (category が null か大項目 id "
 mfme list --min-amount <n>      # 金額の下限 (inclusive)。金額は符号付きの整数 (円、支出は負)
 mfme list --max-amount <n>      # 金額の上限 (inclusive)。金額は符号付きの整数 (円、支出は負)
 mfme liabilities [--format json|ndjson|csv]   # 負債の明細 (種類 / 名称 / 残高 / 金融機関)
+mfme assets [--format json|ndjson|csv]        # 資産の明細 (種類 / 名称 / 残高 / 金融機関、種類固有の列は details。CSV には details を出さない)
 mfme update <tx_id> [--memo "..."] [--category "食費/ランチ"] [--dry-run]
 mfme update --stdin [--dry-run]     # NDJSON を stdin から受けて一括更新
 ```
@@ -126,6 +127,7 @@ meta 欠落を行ごとの失敗にしていないのは、復旧手段が `mfme
 - stderr: 進捗ログ (`[info] ...` / `[error] ...`)
 - exit code: `0` 成功 / `1` 認証・セッション (失敗 / 未ログイン / ログイン用の画面が無い) / `2` 要素見つからない / `3` 入力不正 / `4` その他 / `5` ブラウザ未導入
   (`update --stdin` は 1 件でも失敗すれば `4`)
+  (`assets` は読めなかった節が 1 つでもあれば `4`。読めた節の分は stdout に出る)
 
 ### ストレージ
 

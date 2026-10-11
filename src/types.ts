@@ -25,7 +25,7 @@ export type CategoryMeta = {
   updatedAt: ISODate;
 };
 
-export type ExitCode = 0 | 1 | 2 | 3 | 4;
+export type ExitCode = 0 | 1 | 2 | 3 | 4 | 5;
 
 export const EXIT = {
   OK: 0,
@@ -33,4 +33,5 @@ export const EXIT = {
   ELEMENT_NOT_FOUND: 2,
   INVALID_INPUT: 3,
   UNKNOWN: 4,
+  BROWSER_MISSING: 5,
 } as const satisfies Record<string, ExitCode>;

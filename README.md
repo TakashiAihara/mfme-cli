@@ -42,9 +42,9 @@ mfme sync-meta                      # カテゴリ ID マップをキャッシ�
 mfme list [--since 2026-01-01] [--until 2026-04-01] [--format json|ndjson|csv]
 mfme list --account <text>      # 口座名に <text> を含む取引だけ出す
 mfme list --no-transfer         # 振替 (isTransfer) を除く
-mfme list --uncategorized       # カテゴリ未設定の取引だけ出す
-mfme list --min-amount <n>      # 金額の下限 (inclusive)。金額は符号付き (支出は負)
-mfme list --max-amount <n>      # 金額の上限 (inclusive)。金額は符号付き (支出は負)
+mfme list --uncategorized       # 未分類 (大項目 id "0") の取引だけ出す
+mfme list --min-amount <n>      # 金額の下限 (inclusive)。金額は符号付きの整数 (円、支出は負)
+mfme list --max-amount <n>      # 金額の上限 (inclusive)。金額は符号付きの整数 (円、支出は負)
 mfme update <tx_id> [--memo "..."] [--category "食費/ランチ"] [--dry-run]
 mfme update --stdin [--dry-run]     # NDJSON を stdin から受けて一括更新
 ```

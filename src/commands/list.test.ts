@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import { filterTransactions, toCsvRow } from "./list.ts";
+import { AppError } from "../errors.ts";
+import { filterTransactions, toCsvRow, toListFilter } from "./list.ts";
 import type { Transaction } from "../types.ts";
 
 const baseTx: Transaction = {
@@ -176,5 +177,69 @@ describe("filterTransactions", () => {
       maxAmount: -100,
     });
     expect(ids(got)).toEqual(["t2"]);
+  });
+});
+
+describe("filterTransactions の未分類", () => {
+  const uncategorizedFixtures: Transaction[] = [
+    { ...fixtures[0]!, id: "u1", category: null },
+    {
+      ...fixtures[0]!,
+      id: "u2",
+      category: { largeId: "0", largeName: "未分類", middleId: "0", middleName: "未分類" },
+    },
+    { ...fixtures[0]!, id: "u3", category: cat("食費", "外食") },
+  ];
+
+  test("--uncategorized は null と大項目 id 0 の両方を拾う", () => {
+    const got = filterTransactions(uncategorizedFixtures, { transfer: true, uncategorized: true });
+    expect(ids(got)).toEqual(["u1", "u2"]);
+  });
+});
+
+describe("toListFilter", () => {
+  test("何も指定しなければ振替を含み、他は絞らない", () => {
+    expect(toListFilter({})).toEqual({
+      account: undefined,
+      transfer: true,
+      uncategorized: false,
+      minAmount: undefined,
+      maxAmount: undefined,
+    });
+  });
+
+  test("--no-transfer と金額 (負数を含む) をそのまま渡す", () => {
+    expect(
+      toListFilter({ transfer: false, uncategorized: true, minAmount: "-5000", maxAmount: "-800" }),
+    ).toEqual({
+      account: undefined,
+      transfer: false,
+      uncategorized: true,
+      minAmount: -5000,
+      maxAmount: -800,
+    });
+  });
+
+  for (const bad of ["", " ", "abc", "1e3", "0x10", "12.5", " 12 "]) {
+    test(`金額 ${JSON.stringify(bad)} は INVALID_INPUT(3)`, () => {
+      let caught: unknown;
+      try {
+        toListFilter({ minAmount: bad });
+      } catch (e) {
+        caught = e;
+      }
+      expect(caught).toBeInstanceOf(AppError);
+      expect((caught as AppError).exitCode).toBe(3);
+      expect((caught as AppError).message).toBe(`invalid --min-amount: ${bad}`);
+    });
+  }
+
+  test("--max-amount の不正値はフラグ名をそのまま出す", () => {
+    expect(() => toListFilter({ maxAmount: "x" })).toThrow("invalid --max-amount: x");
+  });
+
+  test("min > max は INVALID_INPUT(3)、min = max は通る", () => {
+    expect(() => toListFilter({ minAmount: "10", maxAmount: "5" })).toThrow(AppError);
+    expect(toListFilter({ minAmount: "5", maxAmount: "5" }).minAmount).toBe(5);
   });
 });

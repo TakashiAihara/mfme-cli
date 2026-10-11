@@ -26,11 +26,47 @@ export function toCsvRow(tx: Transaction): string {
     .join(",");
 }
 
+// ME では「未分類」が大項目 id "0" の実在カテゴリ (sync-meta の large に載る) なので、
+// 未分類の行は null ではなく id "0" で来る。名前ではなく id で見る
+function isUncategorized(tx: Transaction): boolean {
+  return tx.category === null || tx.category.largeId === "0";
+}
+
+export type ListFilterOptions = {
+  account?: string;
+  transfer?: boolean;
+  uncategorized?: boolean;
+  minAmount?: string;
+  maxAmount?: string;
+};
+
+// 金額は円の整数。Number() だと "0x10" や "1e3" や空文字 (0) まで通るので形で絞る
+function parseAmount(flag: string, raw: string | undefined): number | undefined {
+  if (raw === undefined) return undefined;
+  if (!/^-?\d+$/.test(raw)) throw new AppError(`invalid ${flag}: ${raw}`, EXIT.INVALID_INPUT);
+  return Number(raw);
+}
+
+export function toListFilter(o: ListFilterOptions): ListFilter {
+  const minAmount = parseAmount("--min-amount", o.minAmount);
+  const maxAmount = parseAmount("--max-amount", o.maxAmount);
+  if (minAmount !== undefined && maxAmount !== undefined && minAmount > maxAmount) {
+    throw new AppError("--min-amount が --max-amount より大きい", EXIT.INVALID_INPUT);
+  }
+  return {
+    account: o.account,
+    transfer: o.transfer ?? true,
+    uncategorized: !!o.uncategorized,
+    minAmount,
+    maxAmount,
+  };
+}
+
 export function filterTransactions(txs: Transaction[], f: ListFilter): Transaction[] {
   return txs.filter((tx) => {
     if (f.account !== undefined && !tx.account.includes(f.account)) return false;
     if (!f.transfer && tx.isTransfer) return false;
-    if (f.uncategorized && tx.category !== null) return false;
+    if (f.uncategorized && !isUncategorized(tx)) return false;
     if (f.minAmount !== undefined && tx.amount < f.minAmount) return false;
     if (f.maxAmount !== undefined && tx.amount > f.maxAmount) return false;
     return true;

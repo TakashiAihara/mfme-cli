@@ -1,7 +1,7 @@
 #!/usr/bin/env bun
 import { Command } from "commander";
 import { runLogin } from "../src/commands/login.ts";
-import { runList } from "../src/commands/list.ts";
+import { runList, toListFilter, type ListFilter } from "../src/commands/list.ts";
 import { runUpdate, runUpdateBatch } from "../src/commands/update.ts";
 import { runSyncMeta } from "../src/commands/sync-meta.ts";
 
@@ -16,17 +16,6 @@ program
     process.exit(await runLogin());
   });
 
-function parseAmountOption(flag: string, raw: string | undefined): number | undefined {
-  if (raw === undefined) return undefined;
-  const value = Number(raw);
-  // Number("") は 0 になるので、空文字を 0 として受けないよう先に弾く
-  if (raw.trim() === "" || !Number.isFinite(value)) {
-    process.stderr.write(`invalid ${flag}: ${raw}\n`);
-    process.exit(3);
-  }
-  return value;
-}
-
 program
   .command("list")
   .description("取引一覧を取得して stdout に出力")
@@ -35,9 +24,9 @@ program
   .option("--format <format>", "json|ndjson|csv", "json")
   .option("--account <text>", "口座名に <text> を含む取引だけ出す")
   .option("--no-transfer", "振替 (isTransfer) を除く")
-  .option("--uncategorized", "カテゴリ未設定の取引だけ出す")
-  .option("--min-amount <n>", "金額の下限 (inclusive)。金額は符号付き (支出は負)")
-  .option("--max-amount <n>", "金額の上限 (inclusive)。金額は符号付き (支出は負)")
+  .option("--uncategorized", "未分類の取引だけ出す")
+  .option("--min-amount <n>", "金額の下限 (inclusive)。金額は符号付きの整数 (円、支出は負)")
+  .option("--max-amount <n>", "金額の上限 (inclusive)。金額は符号付きの整数 (円、支出は負)")
   .action(
     async (opts: {
       since?: string;
@@ -54,26 +43,14 @@ program
         process.stderr.write(`invalid --format: ${format}\n`);
         process.exit(3);
       }
-      const minAmount = parseAmountOption("--min-amount", opts.minAmount);
-      const maxAmount = parseAmountOption("--max-amount", opts.maxAmount);
-      if (minAmount !== undefined && maxAmount !== undefined && minAmount > maxAmount) {
-        process.stderr.write("--min-amount が --max-amount より大きい\n");
+      let filter: ListFilter;
+      try {
+        filter = toListFilter(opts);
+      } catch (e) {
+        process.stderr.write(`${e instanceof Error ? e.message : String(e)}\n`);
         process.exit(3);
       }
-      process.exit(
-        await runList({
-          since: opts.since,
-          until: opts.until,
-          format,
-          filter: {
-            account: opts.account,
-            transfer: opts.transfer ?? true,
-            uncategorized: !!opts.uncategorized,
-            minAmount,
-            maxAmount,
-          },
-        }),
-      );
+      process.exit(await runList({ since: opts.since, until: opts.until, format, filter }));
     },
   );
 

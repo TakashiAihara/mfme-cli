@@ -16,20 +16,66 @@ program
     process.exit(await runLogin());
   });
 
+function parseAmountOption(flag: string, raw: string | undefined): number | undefined {
+  if (raw === undefined) return undefined;
+  const value = Number(raw);
+  // Number("") は 0 になるので、空文字を 0 として受けないよう先に弾く
+  if (raw.trim() === "" || !Number.isFinite(value)) {
+    process.stderr.write(`invalid ${flag}: ${raw}\n`);
+    process.exit(3);
+  }
+  return value;
+}
+
 program
   .command("list")
   .description("取引一覧を取得して stdout に出力")
   .option("--since <YYYY-MM-DD>", "開始日 (inclusive)")
   .option("--until <YYYY-MM-DD>", "終了日 (inclusive)")
   .option("--format <format>", "json|ndjson|csv", "json")
-  .action(async (opts: { since?: string; until?: string; format?: string }) => {
-    const format = (opts.format ?? "json") as "json" | "ndjson" | "csv";
-    if (!["json", "ndjson", "csv"].includes(format)) {
-      process.stderr.write(`invalid --format: ${format}\n`);
-      process.exit(3);
-    }
-    process.exit(await runList({ since: opts.since, until: opts.until, format }));
-  });
+  .option("--account <text>", "口座名に <text> を含む取引だけ出す")
+  .option("--no-transfer", "振替 (isTransfer) を除く")
+  .option("--uncategorized", "カテゴリ未設定の取引だけ出す")
+  .option("--min-amount <n>", "金額の下限 (inclusive)。金額は符号付き (支出は負)")
+  .option("--max-amount <n>", "金額の上限 (inclusive)。金額は符号付き (支出は負)")
+  .action(
+    async (opts: {
+      since?: string;
+      until?: string;
+      format?: string;
+      account?: string;
+      transfer?: boolean;
+      uncategorized?: boolean;
+      minAmount?: string;
+      maxAmount?: string;
+    }) => {
+      const format = (opts.format ?? "json") as "json" | "ndjson" | "csv";
+      if (!["json", "ndjson", "csv"].includes(format)) {
+        process.stderr.write(`invalid --format: ${format}\n`);
+        process.exit(3);
+      }
+      const minAmount = parseAmountOption("--min-amount", opts.minAmount);
+      const maxAmount = parseAmountOption("--max-amount", opts.maxAmount);
+      if (minAmount !== undefined && maxAmount !== undefined && minAmount > maxAmount) {
+        process.stderr.write("--min-amount が --max-amount より大きい\n");
+        process.exit(3);
+      }
+      process.exit(
+        await runList({
+          since: opts.since,
+          until: opts.until,
+          format,
+          filter: {
+            account: opts.account,
+            transfer: opts.transfer ?? true,
+            uncategorized: !!opts.uncategorized,
+            minAmount,
+            maxAmount,
+          },
+        }),
+      );
+    },
+  );
 
 program
   .command("update")

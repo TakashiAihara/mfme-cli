@@ -34,6 +34,7 @@ const { runLogin } = await import("./login.ts");
 const { runUpdate } = await import("./update.ts");
 const { runLiabilities } = await import("./liabilities.ts");
 const { runAssets } = await import("./assets.ts");
+const { runBudget } = await import("./budget.ts");
 
 const commands: Array<{ name: string; run: () => Promise<number> }> = [
   {
@@ -42,6 +43,7 @@ const commands: Array<{ name: string; run: () => Promise<number> }> = [
   },
   { name: "runLiabilities", run: () => runLiabilities({ format: "json" }) },
   { name: "runAssets", run: () => runAssets({ format: "json" }) },
+  { name: "runBudget", run: () => runBudget({ format: "json" }) },
   { name: "runSyncMeta", run: () => runSyncMeta() },
   { name: "runLogin", run: () => runLogin() },
   { name: "runUpdate", run: () => runUpdate({ txId: "tx_1", memo: "m", dryRun: false }) },

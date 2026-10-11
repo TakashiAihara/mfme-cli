@@ -40,6 +40,24 @@ export type Asset = {
   details: Record<string, string>;
 };
 
+export type BudgetRow = { spent: number; remaining: number; budget: number };
+
+export type Budget = {
+  month: string;
+  total: BudgetRow;
+  groups: Array<{
+    kind: "variable" | "fixed";
+    total: BudgetRow;
+    categories: Array<BudgetRow & { largeName: string }>;
+  }>;
+};
+
+export type BudgetLine = {
+  month: string;
+  kind: "total" | "variable" | "fixed";
+  largeName: string | null;
+} & BudgetRow;
+
 export type ExitCode = 0 | 1 | 2 | 3 | 4 | 5;
 
 export const EXIT = {

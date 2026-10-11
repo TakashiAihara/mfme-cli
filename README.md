@@ -43,7 +43,8 @@ bun run check              # CI と同じ 4 段: typecheck / lint / format:check
 mfme login
 # 送り先のパスは、送り先で mfme login が出した 1 行の末尾のもの。XDG_CONFIG_HOME が無ければ下のとおり
 ssh <host> 'mkdir -m 700 -p ~/.config/mfme'
-scp ~/.config/mfme/session.json <host>:.config/mfme/session.json
+# -p で送信元の 600 のまま送る。送信元の保存先は XDG_CONFIG_HOME に従う
+scp -p "${XDG_CONFIG_HOME:-$HOME/.config}/mfme/session.json" <host>:.config/mfme/session.json
 ssh <host> 'chmod 600 ~/.config/mfme/session.json && mfme list --since 2026-10-01 --format json > /dev/null; echo "exit=$?"'
 ```
 

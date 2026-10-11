@@ -10,6 +10,7 @@ afterAll(() => {
   rmSync(emptyBrowsers, { recursive: true, force: true });
 });
 
+// bun と Playwright を子プロセスで起動するので、既定の 5 秒では冷えた CI で足りないことがある
 test("ブラウザが無ければ exit 5 と導入コマンドの 1 行を出す", () => {
   const root = resolve(import.meta.dir, "..");
   const proc = Bun.spawnSync(["bun", "run", join(root, "src/cli.ts"), "sync-meta"], {
@@ -21,4 +22,4 @@ test("ブラウザが無ければ exit 5 と導入コマンドの 1 行を出す
   expect(proc.stderr.toString()).toContain(
     `browser not installed. run: bun --cwd='${root}' run install-browsers`,
   );
-});
+}, 30_000);

@@ -7,18 +7,22 @@ import { EXIT } from "./types.ts";
 let sessionPath: string | null = null;
 let browserClosed = false;
 let newContextCalled = false;
+let launchError: Error | null = null;
 
 mock.module("playwright", () => ({
   chromium: {
-    launch: async () => ({
-      close: async () => {
-        browserClosed = true;
-      },
-      newContext: async () => {
-        newContextCalled = true;
-        return { close: async () => {} };
-      },
-    }),
+    launch: async () => {
+      if (launchError) throw launchError;
+      return {
+        close: async () => {
+          browserClosed = true;
+        },
+        newContext: async () => {
+          newContextCalled = true;
+          return { close: async () => {} };
+        },
+      };
+    },
   },
 }));
 
@@ -34,6 +38,7 @@ beforeEach(() => {
   sessionPath = null;
   browserClosed = false;
   newContextCalled = false;
+  launchError = null;
 });
 
 describe("launch", () => {
@@ -72,5 +77,39 @@ describe("launch", () => {
 
     expect(newContextCalled).toBe(true);
     expect(typeof handle.close).toBe("function");
+  });
+
+  test("ブラウザ未導入なら BROWSER_MISSING(5) の AppError", async () => {
+    launchError = new Error(
+      "browserType.launch: Executable doesn't exist at /x/chrome-headless-shell",
+    );
+
+    let caught: unknown;
+    try {
+      await launch();
+    } catch (e) {
+      caught = e;
+    }
+
+    expect(caught).toBeInstanceOf(AppError);
+    expect((caught as AppError).exitCode).toBe(5);
+    expect((caught as AppError).message).toContain("install-browsers");
+    expect((caught as AppError).message).toContain("--cwd=");
+    expect((caught as AppError).message).not.toContain("\n");
+  });
+
+  test("ブラウザ以外の起動エラーは素の Error をそのまま投げる", async () => {
+    const boom = new Error("boom");
+    launchError = boom;
+
+    let caught: unknown;
+    try {
+      await launch();
+    } catch (e) {
+      caught = e;
+    }
+
+    expect(caught).toBe(boom);
+    expect(caught).not.toBeInstanceOf(AppError);
   });
 });

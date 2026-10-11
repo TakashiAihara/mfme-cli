@@ -14,7 +14,8 @@
     "lint": "oxlint .",
     "format": "oxfmt .",
     "format:check": "oxfmt --check .",
-    "install-browsers": "bun x playwright install chromium"
+    "install-browsers": "bun x playwright install chromium",
+    "check": "bun run typecheck && bun run lint && bun run format:check && bun test"
   },
   "dependencies": {
     "commander": "^12.1.0",

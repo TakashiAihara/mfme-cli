@@ -127,3 +127,5 @@ fixtures/real-*.json
 # ローカル state / log
 state/
 *.log
+# kaneo session attach が置くローカル state
+.kaneo.json

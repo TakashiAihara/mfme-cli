@@ -63,6 +63,7 @@ mfme list --min-amount <n>      # 金額の下限 (inclusive)。金額は符号�
 mfme list --max-amount <n>      # 金額の上限 (inclusive)。金額は符号付きの整数 (円、支出は負)
 mfme liabilities [--format json|ndjson|csv]   # 負債の明細 (種類 / 名称 / 残高 / 金融機関)
 mfme assets [--format json|ndjson|csv]        # 資産の明細 (種類 / 名称 / 残高 / 金融機関、種類固有の列は details。CSV には details を出さない)
+mfme budget [--month 2026-09] [--format json|ndjson|csv]   # 予算の消化状況。--month 省略時は実行ホストのローカル時刻の当月。ME の月の開始日を 1 日以外にしていると exit 2 で止まる。json は入れ子、ndjson / csv は 1 行 1 区分・大項目に平らにする。budget = spent + remaining
 mfme update <tx_id> [--memo "..."] [--category "食費/ランチ"] [--dry-run]
 mfme update --stdin [--dry-run]     # NDJSON を stdin から受けて一括更新
 ```

@@ -5,4 +5,5 @@ export const URL_CF = "https://moneyforward.com/cf";
 export const URL_ACCOUNTS = "https://moneyforward.com/accounts";
 export const URL_BS_LIABILITY = "https://moneyforward.com/bs/liability";
 export const URL_BS_PORTFOLIO = "https://moneyforward.com/bs/portfolio";
+export const URL_SPENDING_SUMMARIES = "https://moneyforward.com/spending_summaries";
 export const HOST_ME = "moneyforward.com";

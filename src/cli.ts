@@ -6,6 +6,7 @@ import { runUpdate, runUpdateBatch } from "../src/commands/update.ts";
 import { runSyncMeta } from "../src/commands/sync-meta.ts";
 import { runLiabilities } from "../src/commands/liabilities.ts";
 import { runAssets } from "../src/commands/assets.ts";
+import { runBudget } from "../src/commands/budget.ts";
 
 const program = new Command();
 
@@ -80,6 +81,20 @@ program
       process.exit(3);
     }
     process.exit(await runAssets({ format }));
+  });
+
+program
+  .command("budget")
+  .description("予算の消化状況を取得して stdout に出力")
+  .option("--month <YYYY-MM>", "対象月 (既定は当月)")
+  .option("--format <format>", "json|ndjson|csv", "json")
+  .action(async (opts: { month?: string; format?: string }) => {
+    const format = (opts.format ?? "json") as "json" | "ndjson" | "csv";
+    if (!["json", "ndjson", "csv"].includes(format)) {
+      process.stderr.write(`invalid --format: ${format}\n`);
+      process.exit(3);
+    }
+    process.exit(await runBudget({ month: opts.month, format }));
   });
 
 program

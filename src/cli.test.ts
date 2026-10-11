@@ -27,6 +27,22 @@ for (const command of ["sync-meta", "login"]) {
   }, 30_000);
 }
 
+// 未来の月は offset の計算で止まり、ブラウザを起動する前に exit 3 で終わる
+test("budget --month 未来の月は起動前に exit 3", () => {
+  const root = resolve(import.meta.dir, "..");
+  const proc = Bun.spawnSync([
+    "bun",
+    "run",
+    join(root, "src/cli.ts"),
+    "budget",
+    "--month",
+    "2099-01",
+  ]);
+
+  expect(proc.exitCode).toBe(3);
+  expect(proc.stderr.toString()).toBe("[error] --month is in the future: 2099-01\n");
+}, 30_000);
+
 // commander が負数を値として受けるかは CLI を通さないと分からない。min > max のエラーは両方の値が
 // 負数のまま検証を通ったときにしか出ないので、負数の受け取りから検証までを 1 回で見られる。
 // 入力検証はブラウザ起動前に終わるので CI でも走る

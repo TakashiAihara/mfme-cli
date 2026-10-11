@@ -32,6 +32,14 @@ export type Liability = {
   institution: string;
 };
 
+export type Asset = {
+  type: string;
+  name: string;
+  balance: number;
+  institution: string;
+  details: Record<string, string>;
+};
+
 export type ExitCode = 0 | 1 | 2 | 3 | 4 | 5;
 
 export const EXIT = {

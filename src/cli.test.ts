@@ -26,3 +26,28 @@ for (const command of ["sync-meta", "login"]) {
     );
   }, 30_000);
 }
+
+// commander が負数を値として受けるかは CLI を通さないと分からない。min > max のエラーは両方の値が
+// 負数のまま検証を通ったときにしか出ないので、負数の受け取りから検証までを 1 回で見られる。
+// 入力検証はブラウザ起動前に終わるので CI でも走る
+for (const [min, max] of [
+  ["0", "-1000"],
+  ["-1000", "-2000"],
+]) {
+  test(`--min-amount ${min} --max-amount ${max} は min > max として exit 3`, () => {
+    const root = resolve(import.meta.dir, "..");
+    const proc = Bun.spawnSync([
+      "bun",
+      "run",
+      join(root, "src/cli.ts"),
+      "list",
+      "--min-amount",
+      min!,
+      "--max-amount",
+      max!,
+    ]);
+
+    expect(proc.exitCode).toBe(3);
+    expect(proc.stderr.toString()).toBe("--min-amount が --max-amount より大きい\n");
+  }, 30_000);
+}

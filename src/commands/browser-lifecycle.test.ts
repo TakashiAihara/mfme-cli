@@ -34,7 +34,10 @@ const { runLogin } = await import("./login.ts");
 const { runUpdate } = await import("./update.ts");
 
 const commands: Array<{ name: string; run: () => Promise<number> }> = [
-  { name: "runList", run: () => runList({ format: "json" }) },
+  {
+    name: "runList",
+    run: () => runList({ format: "json", filter: { transfer: true, uncategorized: false } }),
+  },
   { name: "runSyncMeta", run: () => runSyncMeta() },
   { name: "runLogin", run: () => runLogin() },
   { name: "runUpdate", run: () => runUpdate({ txId: "tx_1", memo: "m", dryRun: false }) },

@@ -1,7 +1,7 @@
 #!/usr/bin/env bun
 import { Command } from "commander";
 import { runLogin } from "../src/commands/login.ts";
-import { runList } from "../src/commands/list.ts";
+import { runList, toListFilter, type ListFilter } from "../src/commands/list.ts";
 import { runUpdate, runUpdateBatch } from "../src/commands/update.ts";
 import { runSyncMeta } from "../src/commands/sync-meta.ts";
 
@@ -22,14 +22,37 @@ program
   .option("--since <YYYY-MM-DD>", "開始日 (inclusive)")
   .option("--until <YYYY-MM-DD>", "終了日 (inclusive)")
   .option("--format <format>", "json|ndjson|csv", "json")
-  .action(async (opts: { since?: string; until?: string; format?: string }) => {
-    const format = (opts.format ?? "json") as "json" | "ndjson" | "csv";
-    if (!["json", "ndjson", "csv"].includes(format)) {
-      process.stderr.write(`invalid --format: ${format}\n`);
-      process.exit(3);
-    }
-    process.exit(await runList({ since: opts.since, until: opts.until, format }));
-  });
+  .option("--account <text>", "口座名に <text> を含む取引だけ出す")
+  .option("--no-transfer", "振替 (isTransfer) を除く")
+  .option("--uncategorized", "未分類の取引だけ出す")
+  .option("--min-amount <n>", "金額の下限 (inclusive)。金額は符号付きの整数 (円、支出は負)")
+  .option("--max-amount <n>", "金額の上限 (inclusive)。金額は符号付きの整数 (円、支出は負)")
+  .action(
+    async (opts: {
+      since?: string;
+      until?: string;
+      format?: string;
+      account?: string;
+      transfer?: boolean;
+      uncategorized?: boolean;
+      minAmount?: string;
+      maxAmount?: string;
+    }) => {
+      const format = (opts.format ?? "json") as "json" | "ndjson" | "csv";
+      if (!["json", "ndjson", "csv"].includes(format)) {
+        process.stderr.write(`invalid --format: ${format}\n`);
+        process.exit(3);
+      }
+      let filter: ListFilter;
+      try {
+        filter = toListFilter(opts);
+      } catch (e) {
+        process.stderr.write(`${e instanceof Error ? e.message : String(e)}\n`);
+        process.exit(3);
+      }
+      process.exit(await runList({ since: opts.since, until: opts.until, format, filter }));
+    },
+  );
 
 program
   .command("update")

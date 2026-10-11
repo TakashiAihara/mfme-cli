@@ -23,6 +23,7 @@ mise install         # Bun インストール
 bun install
 bun run install-browsers   # Playwright Chromium
 bun run install-bin        # `mfme` を PATH に載せる (任意)
+bun run check              # CI と同じ 4 段: typecheck / lint / format:check / test
 ```
 
 `install-bin` は `src/cli.ts` に実行ビットを立て、`~/.local/bin/mfme` から

@@ -10,16 +10,19 @@ afterAll(() => {
   rmSync(emptyBrowsers, { recursive: true, force: true });
 });
 
+// headless の sync-meta と headed の login で、起動する実行ファイルが違う (headless-shell と chromium)。
 // bun と Playwright を子プロセスで起動するので、既定の 5 秒では冷えた CI で足りないことがある
-test("ブラウザが無ければ exit 5 と導入コマンドの 1 行を出す", () => {
-  const root = resolve(import.meta.dir, "..");
-  const proc = Bun.spawnSync(["bun", "run", join(root, "src/cli.ts"), "sync-meta"], {
-    env: { ...process.env, PLAYWRIGHT_BROWSERS_PATH: emptyBrowsers },
-  });
+for (const command of ["sync-meta", "login"]) {
+  test(`${command}: ブラウザが無ければ exit 5 と導入コマンドの 1 行だけを出す`, () => {
+    const root = resolve(import.meta.dir, "..");
+    const proc = Bun.spawnSync(["bun", "run", join(root, "src/cli.ts"), command], {
+      env: { ...process.env, PLAYWRIGHT_BROWSERS_PATH: emptyBrowsers },
+    });
 
-  expect(proc.exitCode).toBe(5);
-  expect(proc.stdout.toString()).toBe("");
-  expect(proc.stderr.toString()).toContain(
-    `browser not installed. run: bun --cwd='${root}' run install-browsers`,
-  );
-}, 30_000);
+    expect(proc.exitCode).toBe(5);
+    expect(proc.stdout.toString()).toBe("");
+    expect(proc.stderr.toString()).toBe(
+      `[error] browser not installed. run: bun --cwd='${root}' run install-browsers\n`,
+    );
+  }, 30_000);
+}

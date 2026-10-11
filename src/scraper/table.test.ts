@@ -28,9 +28,9 @@ describe("tableToRecords", () => {
     ]);
   });
 
-  test("セルの前後の空白を落とし、内部の連続した空白は 1 つにする", () => {
-    const rows = [row(th(" 名称・ 説明 ")), row(td("  ご利用\n   残高  "))];
-    expect(tableToRecords(rows)).toEqual([{ "名称・ 説明": "ご利用 残高" }]);
+  test("見出しは空白をすべて除き、セルは前後を落として内部の連続した空白を 1 つにする", () => {
+    const rows = [row(th(" 名称・\n 説明 ")), row(td("  ご利用\n   残高  "))];
+    expect(tableToRecords(rows)).toEqual([{ "名称・説明": "ご利用 残高" }]);
   });
 
   test("見出しより前の行は捨て、セルが足りない行は空文字で埋める", () => {

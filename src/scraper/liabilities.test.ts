@@ -1,13 +1,13 @@
 import { describe, expect, test } from "bun:test";
 import { AppError } from "../errors.ts";
-import { parseLiabilities } from "./liabilities.ts";
+import { fetchLiabilities, parseLiabilities } from "./liabilities.ts";
 import type { RawRow } from "./table.ts";
 
 const th = (text: string) => ({ tag: "th" as const, classes: [], text });
 const td = (text: string) => ({ tag: "td" as const, classes: [], text });
 const row = (...cells: RawRow["cells"]): RawRow => ({ classes: [], cells });
 
-// /bs/liability の明細表 (#liability_det table.table-det) と同じ列の並び (2026-10-12 に実ページで確認)
+// /bs/liability の明細表 (#liability_det table.table-det) と同じ列の並び (2026-10-11 に実ページで確認)
 const header = row(
   th("種類"),
   th("名称・説明"),
@@ -52,8 +52,21 @@ describe("parseLiabilities", () => {
     ]);
   });
 
-  test("表が無い (負債 0 件) なら空配列", () => {
-    expect(parseLiabilities([])).toEqual([]);
+  test("行が 1 つも無ければ見出し無しとして ELEMENT_NOT_FOUND(2)", () => {
+    let caught: unknown;
+    try {
+      parseLiabilities([]);
+    } catch (e) {
+      caught = e;
+    }
+    expect((caught as AppError).exitCode).toBe(2);
+    expect((caught as AppError).message).toBe("table header not found");
+  });
+
+  test("見出しだけの表でも列が欠けていれば ELEMENT_NOT_FOUND(2)", () => {
+    expect(() => parseLiabilities([row(th("種類"), th("名称・説明"), th("残高"))])).toThrow(
+      'liability table: column "保有金融機関" not found',
+    );
   });
 
   test("見出しだけでデータ行が無ければ空配列", () => {
@@ -75,4 +88,65 @@ describe("parseLiabilities", () => {
       expect((caught as AppError).message).toBe(`liability table: column "${missing}" not found`);
     });
   }
+});
+
+describe("fetchLiabilities", () => {
+  // Playwright の Page のうち fetchLiabilities が触る口だけを持つ偽物
+  function fakePage(opts: { url?: string; table: boolean; rows?: RawRow[] }) {
+    const calls: string[] = [];
+    const page = {
+      goto: async (u: string) => {
+        calls.push(`goto ${u}`);
+      },
+      url: () => opts.url ?? "https://moneyforward.com/bs/liability",
+      $: async (sel: string) => {
+        calls.push(`$ ${sel}`);
+        return opts.table ? {} : null;
+      },
+      $$eval: async (sel: string) => {
+        calls.push(`$$eval ${sel}`);
+        return opts.rows ?? [];
+      },
+    };
+    return { page: page as unknown as Parameters<typeof fetchLiabilities>[0], calls };
+  }
+
+  test("明細表の行を読んで変換する", async () => {
+    const rows = [header, row(td("奨学金"), td("第一種"), td("10円"), td("B"), td(""), td(""))];
+    const { page, calls } = fakePage({ table: true, rows });
+
+    expect(await fetchLiabilities(page)).toEqual([
+      { type: "奨学金", name: "第一種", balance: 10, institution: "B" },
+    ]);
+    expect(calls).toEqual([
+      "goto https://moneyforward.com/bs/liability",
+      "$ #liability_det table.table-det",
+      "$$eval #liability_det table.table-det tr",
+    ]);
+  });
+
+  test("明細表が見つからなければ 0 件にせず ELEMENT_NOT_FOUND(2)", async () => {
+    const { page } = fakePage({ table: false });
+    let caught: unknown;
+    try {
+      await fetchLiabilities(page);
+    } catch (e) {
+      caught = e;
+    }
+    expect((caught as AppError).exitCode).toBe(2);
+    expect((caught as AppError).message).toBe(
+      "liability table not found: #liability_det table.table-det",
+    );
+  });
+
+  test("ログイン画面に飛ばされたら AUTH_FAILED(1)", async () => {
+    const { page } = fakePage({ table: true, url: "https://moneyforward.com/sign_in" });
+    let caught: unknown;
+    try {
+      await fetchLiabilities(page);
+    } catch (e) {
+      caught = e;
+    }
+    expect((caught as AppError).exitCode).toBe(1);
+  });
 });

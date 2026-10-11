@@ -32,7 +32,8 @@ function headerIndex(rows: RawRow[]): number {
 export function tableHeader(rows: RawRow[]): string[] {
   const i = headerIndex(rows);
   if (i < 0) throw new AppError("table header not found", EXIT.ELEMENT_NOT_FOUND);
-  return rows[i]!.cells.map((c) => normalize(c.text));
+  // 見出しは列を当てる鍵なので、改行や字間の空白で一致しなくならないよう空白をすべて除く
+  return rows[i]!.cells.map((c) => c.text.replace(/\s+/g, ""));
 }
 
 export function tableToRecords(rows: RawRow[]): Array<Record<string, string>> {

@@ -120,7 +120,9 @@ describe("parseAssets", () => {
         },
         { type: "預金・現金", name: "財布", balance: 3400, institution: "財布", details: {} },
       ],
-      failures: [{ section: "未知の節", reason: 'column "種類・名称" or "名称" not found' }],
+      failures: [
+        { section: "未知の節", reason: 'column "種類・名称" or "名称" or "銘柄名" not found' },
+      ],
     });
   });
 
@@ -136,7 +138,7 @@ describe("parseAssets", () => {
   });
 
   for (const [missing, reason] of [
-    ["残高", 'column "残高" or "現在の価値" not found'],
+    ["残高", 'column "残高" or "現在の価値" or "評価額" not found'],
     ["保有金融機関", 'column "保有金融機関" not found'],
   ] as const) {
     test(`列 ${missing} が無い節の理由`, () => {
@@ -213,6 +215,38 @@ describe("fetchAssetSections", () => {
       url: "https://moneyforward.com/sign_in",
     });
     expect((await rejection(fetchAssetSections(page))).exitCode).toBe(1);
+  });
+});
+
+describe("parseAssets の株式・投資信託", () => {
+  // 列の並びは第三者の DOM 観察 (kazukichi0914.hatenablog.com 2026-10-02) に拠る。この口座では未確認
+  test("銘柄名と評価額で当て、銘柄コードや保有数は details に入れる", () => {
+    const stock: AssetSection = {
+      title: "株式(現物)",
+      rows: [
+        row(
+          th("銘柄コード"),
+          th("銘柄名"),
+          th("保有数"),
+          th("評価額"),
+          th("保有金融機関"),
+          th("変更"),
+        ),
+        row(td("1234"), td("X 社"), td("100"), td("250,000円"), td("D 証券"), td("")),
+      ],
+    };
+    expect(parseAssets([stock])).toEqual({
+      assets: [
+        {
+          type: "株式(現物)",
+          name: "X 社",
+          balance: 250000,
+          institution: "D 証券",
+          details: { 銘柄コード: "1234", 保有数: "100" },
+        },
+      ],
+      failures: [],
+    });
   });
 });
 

@@ -9,10 +9,12 @@ export type AssetSection = { title: string; rows: RawRow[] };
 
 const ASSET_SECTIONS = 'section[id^="portfolio_det_"]';
 
+// 預金・現金とポイントの列は 2026-10-11 に実ページで確認した。株式・投資信託の「銘柄名」「評価額」は
+// この口座に無いので、第三者の DOM 観察 (kazukichi0914.hatenablog.com 2026-10-02) に拠る
 const COMMON = {
   institution: "保有金融機関",
-  balance: ["残高", "現在の価値"],
-  name: ["種類・名称", "名称"],
+  balance: ["残高", "現在の価値", "評価額"],
+  name: ["種類・名称", "名称", "銘柄名"],
 } as const;
 
 // details から外す列。変更 / 削除はボタンの列で、値として意味が無い

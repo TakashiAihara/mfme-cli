@@ -1,6 +1,7 @@
 import { resolve } from "node:path";
 import { beforeEach, describe, expect, mock, test } from "bun:test";
 import { AppError } from "./errors.ts";
+import { SESSION_FILE } from "./paths.ts";
 import { EXIT } from "./types.ts";
 
 // 実ブラウザを起動しないよう playwright と session を差し替える。
@@ -122,5 +123,28 @@ describe("shellQuote", () => {
 
   test("単一引用符は '\\'' で閉じて開き直す", () => {
     expect(shellQuote("/it's")).toBe(`'/it'\\''s'`);
+  });
+});
+
+describe("launch の X サーバ無し", () => {
+  test("画面が無ければ AUTH_FAILED(1) と session.json を持ち込む案内の 1 行", async () => {
+    launchError = new Error(
+      "browserType.launch: Target page, context or browser has been closed\nBrowser logs:\n\n" +
+        "║ Looks like you launched a headed browser without having a XServer running.  ║\n",
+    );
+
+    let caught: unknown;
+    try {
+      await launch({ headed: true });
+    } catch (e) {
+      caught = e;
+    }
+
+    expect(caught).toBeInstanceOf(AppError);
+    expect((caught as AppError).exitCode).toBe(1);
+    expect((caught as AppError).message).toBe(
+      "no display for the login browser. run `mfme login` on a machine with a display, " +
+        `then copy its session.json to '${SESSION_FILE}' on this host`,
+    );
   });
 });

@@ -34,6 +34,22 @@ bun run check              # CI と同じ 4 段: typecheck / lint / format:check
 - 単一バイナリ化 (`bun build --compile`) はしない。Playwright が native の browser 実体に依存しており、バンドルしても動かないため
 - symlink 経由の起動は shebang (`#!/usr/bin/env bun`) が拾う PATH 上の Bun を使う。`.mise.toml` の pin は効かない
 
+### 画面の無いホストでのログイン
+
+`mfme login` はブラウザを画面付きで開くので、X サーバの無いホスト (ssh で入るだけのサーバ) では開けない。その場合は exit `1` で止まり、セッションを置くべきパスを 1 行で出す。画面のある機械でログインし、できたセッションをそのパスに持ち込む。
+
+```bash
+# 画面のある機械で (この節の Install を済ませたうえで)
+mfme login
+# 送り先のパスは、送り先で mfme login が出した 1 行の末尾のもの。XDG_CONFIG_HOME が無ければ下のとおり
+ssh <host> 'mkdir -m 700 -p ~/.config/mfme'
+# -p で送信元の 600 のまま送る。送信元の保存先は XDG_CONFIG_HOME に従う
+scp -p "${XDG_CONFIG_HOME:-$HOME/.config}/mfme/session.json" <host>:.config/mfme/session.json
+ssh <host> 'chmod 600 ~/.config/mfme/session.json && mfme list --since 2026-10-01 --format json > /dev/null; echo "exit=$?"'
+```
+
+最後の行が `exit=0` なら持ち込めている。`exit=1` ならセッションが無効 (期限切れ / パス違い)。
+
 ## Commands
 
 ```sh
@@ -107,7 +123,7 @@ meta 欠落を行ごとの失敗にしていないのは、復旧手段が `mfme
 
 - stdout: JSON / NDJSON / CSV (skill がパイプで受ける)
 - stderr: 進捗ログ (`[info] ...` / `[error] ...`)
-- exit code: `0` 成功 / `1` 認証失敗 / `2` 要素見つからない / `3` 入力不正 / `4` その他 / `5` ブラウザ未導入
+- exit code: `0` 成功 / `1` 認証・セッション (失敗 / 未ログイン / ログイン用の画面が無い) / `2` 要素見つからない / `3` 入力不正 / `4` その他 / `5` ブラウザ未導入
   (`update --stdin` は 1 件でも失敗すれば `4`)
 
 ### ストレージ

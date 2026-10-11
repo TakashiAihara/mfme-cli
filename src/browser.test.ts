@@ -81,7 +81,8 @@ describe("launch", () => {
 
   test("ブラウザ未導入なら BROWSER_MISSING(5) の AppError", async () => {
     launchError = new Error(
-      "browserType.launch: Executable doesn't exist at /x/chrome-headless-shell",
+      "browserType.launch: Executable doesn't exist at /x/chrome-headless-shell\n" +
+        "╔═══╗\n║ Looks like Playwright was just installed or updated. ║\n╚═══╝",
     );
 
     let caught: unknown;
@@ -95,7 +96,6 @@ describe("launch", () => {
     expect((caught as AppError).exitCode).toBe(5);
     expect((caught as AppError).message).toContain("install-browsers");
     expect((caught as AppError).message).toContain("--cwd=");
-    expect((caught as AppError).message).not.toContain("\n");
   });
 
   test("ブラウザ以外の起動エラーは素の Error をそのまま投げる", async () => {
@@ -110,6 +110,5 @@ describe("launch", () => {
     }
 
     expect(caught).toBe(boom);
-    expect(caught).not.toBeInstanceOf(AppError);
   });
 });

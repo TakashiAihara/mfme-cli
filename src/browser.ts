@@ -21,15 +21,15 @@ const UA =
   "(KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36";
 
 export async function launch(opts: LaunchOptions = {}): Promise<BrowserHandle> {
-  // Playwright も同じ部分文字列でこのケースを判定する。headless-shell のパスは公開 API から
-  // 取れないので、起動前に存在確認をすると別のバイナリを見てしまう
+  // 文言は Playwright の registry (executablePathOrDie) が投げるもの。headless-shell のパスは
+  // 公開 API から取れないので、起動前に存在確認をすると別のバイナリを見てしまう
   let browser: Browser;
   try {
     browser = await chromium.launch({ headless: !opts.headed });
   } catch (e) {
     if (e instanceof Error && e.message.includes("Executable doesn't exist")) {
       throw new AppError(
-        `browser not installed. run: bun --cwd=${resolve(import.meta.dir, "..")} run install-browsers`,
+        `browser not installed. run: bun --cwd="${resolve(import.meta.dir, "..")}" run install-browsers`,
         EXIT.BROWSER_MISSING,
       );
     }

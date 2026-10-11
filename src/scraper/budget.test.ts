@@ -183,6 +183,20 @@ describe("fetchBudget", () => {
     ]);
   });
 
+  test("ページに年月の表記が 2 種類以上あれば ELEMENT_NOT_FOUND(2)", async () => {
+    const { page } = fakePage({ root: true, label: "2026/09 2026/08", rows });
+    let got: unknown;
+    try {
+      await fetchBudget(page, 1, "2026-09");
+    } catch (e) {
+      got = e;
+    }
+    expect((got as AppError).exitCode).toBe(2);
+    expect((got as AppError).message).toBe(
+      'budget page month label is ambiguous: ["2026/09","2026/08"]',
+    );
+  });
+
   test("表示中の月が求めた月と違えば ELEMENT_NOT_FOUND(2)", async () => {
     const { page } = fakePage({ root: true, label: "2026/08", rows });
     await expect(fetchBudget(page, 1, "2026-09")).rejects.toThrow(
@@ -211,5 +225,36 @@ describe("fetchBudget", () => {
     await expect(fetchBudget(page, 0, "2026-10")).rejects.toThrow(
       "budget page layout changed: #budgets-progress not found",
     );
+  });
+});
+
+describe("parseBudget の合計の突き合わせ", () => {
+  for (const [name, drop] of [
+    ["大項目の行が落ちた", 5],
+    ["区分の小計の行が落ちた", 6],
+  ] as const) {
+    test(`${name}ら ELEMENT_NOT_FOUND(2)`, () => {
+      const e = caught(() =>
+        parseBudget(
+          rows.filter((_, i) => i !== drop),
+          "2026/09",
+        ),
+      );
+      expect(e.exitCode).toBe(2);
+      expect(e.message).toBe("budget rows do not add up to their totals");
+    });
+  }
+
+  test("支出全体が 0 円でも、区分が 1 つも無ければ ELEMENT_NOT_FOUND(2)", () => {
+    const e = caught(() =>
+      parseBudget([line(["total_expense"], "支出全体", "0円", "0円")], "2026/09"),
+    );
+    expect(e.message).toBe("budget rows do not add up to their totals");
+  });
+
+  test("区分の小計は合っていても、支出全体と合わなければ ELEMENT_NOT_FOUND(2)", () => {
+    const wrongTotal = line(["total_expense"], "支出全体", "999円", "0円");
+    const e = caught(() => parseBudget([wrongTotal, ...rows.slice(3)], "2026/09"));
+    expect(e.message).toBe("budget rows do not add up to their totals");
   });
 });

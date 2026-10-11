@@ -71,6 +71,17 @@ export function parseBudget(rows: RawRow[], monthLabel: string): Budget {
   if (total === undefined) {
     throw new AppError("budget total row not found", EXIT.ELEMENT_NOT_FOUND);
   }
+
+  // 小計は配下の行の合計と一致する (2026-10-11 に 4 か月分で確認)。class が変わって行を読み落とすと
+  // 区分が空のまま成功してしまうので、合計が合わなければ止める
+  const sum = (xs: number[]) => xs.reduce((a, b) => a + b, 0);
+  if (
+    groups.length === 0 ||
+    total.spent !== sum(groups.map((g) => g.total.spent)) ||
+    groups.some((g) => g.total.spent !== sum(g.categories.map((c) => c.spent)))
+  ) {
+    throw new AppError("budget rows do not add up to their totals", EXIT.ELEMENT_NOT_FOUND);
+  }
   return { month: `${label[1]}-${label[2]}`, total, groups };
 }
 
@@ -117,7 +128,14 @@ export async function fetchBudget(
   // offset_month は今月から何か月前かを数える (2026-10-11 に確認)。意味が変わっても別の月を黙って返さないよう、表示中の月の見出しを確かめる
   const container = await page.$("#main-container");
   const text = (await container?.textContent()) ?? "";
-  const monthLabel = text.match(/\d{4}\/\d{2}/)?.[0] ?? "";
+  const labels = [...new Set(text.match(/\d{4}\/\d{2}/g) ?? [])];
+  if (labels.length > 1) {
+    throw new AppError(
+      `budget page month label is ambiguous: ${JSON.stringify(labels)}`,
+      EXIT.ELEMENT_NOT_FOUND,
+    );
+  }
+  const monthLabel = labels[0] ?? "";
   const budget = parseBudget(await readRows(page, BUDGET_TABLE), monthLabel);
   if (budget.month !== expectedMonth) {
     throw new AppError(

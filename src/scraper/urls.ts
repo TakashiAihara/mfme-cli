@@ -3,4 +3,5 @@
 export const URL_SIGN_IN = "https://moneyforward.com/sign_in";
 export const URL_CF = "https://moneyforward.com/cf";
 export const URL_ACCOUNTS = "https://moneyforward.com/accounts";
+export const URL_BS_LIABILITY = "https://moneyforward.com/bs/liability";
 export const HOST_ME = "moneyforward.com";

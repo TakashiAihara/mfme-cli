@@ -25,6 +25,13 @@ export type CategoryMeta = {
   updatedAt: ISODate;
 };
 
+export type Liability = {
+  type: string;
+  name: string;
+  balance: number;
+  institution: string;
+};
+
 export type ExitCode = 0 | 1 | 2 | 3 | 4 | 5;
 
 export const EXIT = {

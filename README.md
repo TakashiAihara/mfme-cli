@@ -61,6 +61,7 @@ mfme list --no-transfer         # 振替 (isTransfer) を除く
 mfme list --uncategorized       # 未分類 (category が null か大項目 id "0") の取引だけ出す
 mfme list --min-amount <n>      # 金額の下限 (inclusive)。金額は符号付きの整数 (円、支出は負)
 mfme list --max-amount <n>      # 金額の上限 (inclusive)。金額は符号付きの整数 (円、支出は負)
+mfme liabilities [--format json|ndjson|csv]   # 負債の明細 (種類 / 名称 / 残高 / 金融機関)
 mfme update <tx_id> [--memo "..."] [--category "食費/ランチ"] [--dry-run]
 mfme update --stdin [--dry-run]     # NDJSON を stdin から受けて一括更新
 ```

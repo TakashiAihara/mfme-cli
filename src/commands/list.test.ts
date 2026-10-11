@@ -192,9 +192,14 @@ describe("filterTransactions の未分類", () => {
     {
       ...fixtures[0]!,
       id: "u2",
-      category: { largeId: "0", largeName: "未分類", middleId: "0", middleName: "未分類" },
+      category: { largeId: "0", largeName: "表示名", middleId: "5", middleName: "表示名" },
     },
     { ...fixtures[0]!, id: "u3", category: cat("食費", "外食") },
+    {
+      ...fixtures[0]!,
+      id: "u4",
+      category: { largeId: "9", largeName: "未分類", middleId: "0", middleName: "未分類" },
+    },
   ];
 
   test("--uncategorized は null と大項目 id 0 の両方を拾う", () => {
@@ -226,7 +231,17 @@ describe("toListFilter", () => {
     });
   });
 
-  for (const bad of ["", " ", "abc", "1e3", "0x10", "12.5", " 12 "]) {
+  for (const bad of [
+    "",
+    " ",
+    "abc",
+    "1e3",
+    "0x10",
+    "12.5",
+    " 12 ",
+    "9007199254740993",
+    "9".repeat(400),
+  ]) {
     test(`金額 ${JSON.stringify(bad)} は INVALID_INPUT(3)`, () => {
       let caught: unknown;
       try {
@@ -241,11 +256,25 @@ describe("toListFilter", () => {
   }
 
   test("--max-amount の不正値はフラグ名をそのまま出す", () => {
-    expect(() => toListFilter({ maxAmount: "x" })).toThrow("invalid --max-amount: x");
+    let caught: unknown;
+    try {
+      toListFilter({ maxAmount: "x" });
+    } catch (e) {
+      caught = e;
+    }
+    expect((caught as AppError).exitCode).toBe(3);
+    expect((caught as AppError).message).toBe("invalid --max-amount: x");
   });
 
   test("min > max は INVALID_INPUT(3)、min = max は通る", () => {
-    expect(() => toListFilter({ minAmount: "10", maxAmount: "5" })).toThrow(AppError);
+    let caught: unknown;
+    try {
+      toListFilter({ minAmount: "10", maxAmount: "5" });
+    } catch (e) {
+      caught = e;
+    }
+    expect((caught as AppError).exitCode).toBe(3);
+    expect((caught as AppError).message).toBe("--min-amount が --max-amount より大きい");
     expect(toListFilter({ minAmount: "5", maxAmount: "5" }).minAmount).toBe(5);
   });
 });

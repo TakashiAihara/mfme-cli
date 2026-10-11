@@ -43,13 +43,17 @@ export type ListFilterOptions = {
 // 金額は円の整数。Number() だと "0x10" や "1e3" や空文字 (0) まで通るので形で絞る
 function parseAmount(flag: string, raw: string | undefined): number | undefined {
   if (raw === undefined) return undefined;
-  if (!/^-?\d+$/.test(raw)) throw new AppError(`invalid ${flag}: ${raw}`, EXIT.INVALID_INPUT);
-  return Number(raw);
+  const value = Number(raw);
+  // 桁が多いと Number() は丸めるか Infinity になり、min > max の検査もすり抜けるので安全な整数に限る
+  if (!/^-?\d+$/.test(raw) || !Number.isSafeInteger(value)) {
+    throw new AppError(`invalid ${flag}: ${raw}`, EXIT.INVALID_INPUT);
+  }
+  return value;
 }
 
 export function toListFilter(o: ListFilterOptions): ListFilter {
   // 空文字はどの口座名にも部分一致して何も絞らないので、指定の誤りとして止める
-  if (o.account !== undefined && o.account === "") {
+  if (o.account === "") {
     throw new AppError("invalid --account: empty", EXIT.INVALID_INPUT);
   }
   const minAmount = parseAmount("--min-amount", o.minAmount);

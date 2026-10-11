@@ -236,7 +236,15 @@ describe("monthFromRange", () => {
     expect(monthFromRange(" 2026/02/01 - 2026/02/28 ")).toBe("2026/02");
   });
 
-  for (const bad of ["", "2026/09", "2026/09/01", "Updated 2026/09/01", "2026/09/01-2026/09"]) {
+  for (const bad of [
+    "",
+    "2026/09",
+    "2026/09/01",
+    "Updated 2026/09/01",
+    "2026/09/01-2026/09",
+    "2026/09/01-2026/09/30x",
+    "x2026/09/01-2026/09/30",
+  ]) {
     test(`期間の形でない ${JSON.stringify(bad)} は ELEMENT_NOT_FOUND(2)`, () => {
       const e = caught(() => monthFromRange(bad));
       expect(e.exitCode).toBe(2);

@@ -252,7 +252,14 @@ describe("monthFromRange", () => {
     });
   }
 
+  test("うるう年の 2 月は 29 日までを 1 か月とする", () => {
+    expect(monthFromRange("2028/02/01-2028/02/29")).toBe("2028/02");
+  });
+
   for (const range of [
+    "2026/09/01-2026/09/02",
+    "2028/02/01-2028/02/28",
+    "2026/02/01-2026/02/29",
     "2026/08/25-2026/09/24",
     "2026/09/02-2026/09/30",
     "2025/12/01-2026/12/31",
@@ -266,6 +273,19 @@ describe("monthFromRange", () => {
       );
     });
   }
+});
+
+describe("parseBudget の大項目名", () => {
+  test("名前の無い大項目の行は ELEMENT_NOT_FOUND(2)", () => {
+    const noName = r(
+      ["large_category_expense"],
+      td("40,000円", "amount"),
+      td("-1,000円", "remaining"),
+    );
+    const e = caught(() => parseBudget([...rows.slice(0, 4), noName, ...rows.slice(5)], "2026/09"));
+    expect(e.exitCode).toBe(2);
+    expect(e.message).toBe("budget category row without a name");
+  });
 });
 
 describe("parseBudget の合計の突き合わせ", () => {
@@ -312,7 +332,7 @@ describe("parseBudget の合計の突き合わせ", () => {
   });
 
   test("区分の小計は合っていても、支出全体と合わなければ ELEMENT_NOT_FOUND(2)", () => {
-    const wrongTotal = line(["total_expense"], "支出全体", "999円", "0円");
+    const wrongTotal = line(["total_expense"], "支出全体", "999円", "50,000円");
     const e = caught(() => parseBudget([wrongTotal, ...rows.slice(3)], "2026/09"));
     expect(e.message).toBe("budget rows do not add up to their totals");
   });

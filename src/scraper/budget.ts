@@ -11,11 +11,12 @@ const BUDGET_RANGE = ".date_range .msg";
 
 // 月の開始日を 1 日以外にしていると期間が 2 か月にまたがり、--month の月とどう対応するか確かめられないので止める
 export function monthFromRange(text: string): string {
-  const m = /^(\d{4})\/(\d{2})\/(\d{2})\s*-\s*(\d{4})\/(\d{2})\/\d{2}$/.exec(text.trim());
+  const m = /^(\d{4})\/(\d{2})\/(\d{2})\s*-\s*(\d{4})\/(\d{2})\/(\d{2})$/.exec(text.trim());
   if (m === null) {
     throw new AppError(`unexpected budget period: ${JSON.stringify(text)}`, EXIT.ELEMENT_NOT_FOUND);
   }
-  if (m[3] !== "01" || m[1] !== m[4] || m[2] !== m[5]) {
+  const lastDay = new Date(Number(m[4]), Number(m[5]), 0).getDate();
+  if (m[3] !== "01" || m[1] !== m[4] || m[2] !== m[5] || Number(m[6]) !== lastDay) {
     throw new AppError(
       `budget period is not a calendar month (month start day changed?): ${text.trim()}`,
       EXIT.ELEMENT_NOT_FOUND,
@@ -81,7 +82,11 @@ export function parseBudget(rows: RawRow[], monthLabel: string): Budget {
       if (group === undefined) {
         throw new AppError("budget category row before any group", EXIT.ELEMENT_NOT_FOUND);
       }
-      group.categories.push({ largeName: rowName(row), ...budgetRow(row) });
+      const largeName = rowName(row);
+      if (largeName === "") {
+        throw new AppError("budget category row without a name", EXIT.ELEMENT_NOT_FOUND);
+      }
+      group.categories.push({ largeName, ...budgetRow(row) });
     }
   }
 
@@ -91,7 +96,7 @@ export function parseBudget(rows: RawRow[], monthLabel: string): Budget {
 
   // 小計は配下の行の合計と一致する (使った金額・残りとも、2026-10-11 に 4 か月分で確認)。class が変わって
   // 行を読み落とすと区分が空のまま成功してしまうので、合計が合わなければ止める。使った金額が 0 円の行の
-  // 読み落としは残りの側で捕まる
+  // 読み落としは残りの側で捕まる。使った金額も残りも 0 円の行は、合計からは読み落としを検知できない
   const sum = (xs: number[]) => xs.reduce((a, b) => a + b, 0);
   if (
     groups.length === 0 ||

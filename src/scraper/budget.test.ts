@@ -183,6 +183,11 @@ describe("fetchBudget", () => {
     ]);
   });
 
+  test("同じ年月の表記が何度出ても 1 種類として通す", async () => {
+    const { page } = fakePage({ root: true, label: "2026/09 2026/09", rows });
+    expect((await fetchBudget(page, 1, "2026-09")).month).toBe("2026-09");
+  });
+
   test("ページに年月の表記が 2 種類以上あれば ELEMENT_NOT_FOUND(2)", async () => {
     const { page } = fakePage({ root: true, label: "2026/09 2026/08", rows });
     let got: unknown;

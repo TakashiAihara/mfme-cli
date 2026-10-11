@@ -1,3 +1,4 @@
+import { resolve } from "node:path";
 import { beforeEach, describe, expect, mock, test } from "bun:test";
 import { AppError } from "./errors.ts";
 import { EXIT } from "./types.ts";
@@ -32,7 +33,7 @@ mock.module("./session.ts", () => ({
   hasSession: async () => sessionPath !== null,
 }));
 
-const { launch } = await import("./browser.ts");
+const { launch, shellQuote } = await import("./browser.ts");
 
 beforeEach(() => {
   sessionPath = null;
@@ -94,8 +95,9 @@ describe("launch", () => {
 
     expect(caught).toBeInstanceOf(AppError);
     expect((caught as AppError).exitCode).toBe(5);
-    expect((caught as AppError).message).toContain("install-browsers");
-    expect((caught as AppError).message).toContain("--cwd=");
+    expect((caught as AppError).message).toBe(
+      `browser not installed. run: bun --cwd='${resolve(import.meta.dir, "..")}' run install-browsers`,
+    );
   });
 
   test("ブラウザ以外の起動エラーは素の Error をそのまま投げる", async () => {
@@ -110,5 +112,15 @@ describe("launch", () => {
     }
 
     expect(caught).toBe(boom);
+  });
+});
+
+describe("shellQuote", () => {
+  test('$ と " と ` は単一引用符の中でそのまま残る', () => {
+    expect(shellQuote('/a b/$HOME/"x"/`id`')).toBe(`'/a b/$HOME/"x"/\`id\`'`);
+  });
+
+  test("単一引用符は '\\'' で閉じて開き直す", () => {
+    expect(shellQuote("/it's")).toBe(`'/it'\\''s'`);
   });
 });

@@ -34,6 +34,22 @@ bun run check              # CI と同じ 4 段: typecheck / lint / format:check
 - 単一バイナリ化 (`bun build --compile`) はしない。Playwright が native の browser 実体に依存しており、バンドルしても動かないため
 - symlink 経由の起動は shebang (`#!/usr/bin/env bun`) が拾う PATH 上の Bun を使う。`.mise.toml` の pin は効かない
 
+### 画面の無いホストでのログイン
+
+`mfme login` はブラウザを画面付きで開くので、X サーバの無いホスト (ssh で入るだけのサーバ) では開けない (exit `1` で止まる)。画面のある機械でログインし、できたセッションを持ち込む。
+
+```bash
+# 画面のある機械で (この節の Install を済ませたうえで)
+mfme login
+ssh <host> 'mkdir -p ~/.config/mfme'
+scp ~/.config/mfme/session.json <host>:~/.config/mfme/session.json
+# 持ち込んだ先で
+chmod 600 ~/.config/mfme/session.json
+mfme list --since 2026-10-01 --format json | head -c 200
+```
+
+`XDG_CONFIG_HOME` を設定している環境では `~/.config` をその値に読み替える。
+
 ## Commands
 
 ```sh

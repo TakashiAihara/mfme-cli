@@ -1,6 +1,7 @@
 import { resolve } from "node:path";
 import { chromium, type Browser, type BrowserContext } from "playwright";
 import { AppError } from "./errors.ts";
+import { SESSION_FILE } from "./paths.ts";
 import { loadSession } from "./session.ts";
 import { EXIT } from "./types.ts";
 
@@ -36,6 +37,14 @@ export async function launch(opts: LaunchOptions = {}): Promise<BrowserHandle> {
       throw new AppError(
         `browser not installed. run: bun --cwd=${shellQuote(resolve(import.meta.dir, ".."))} run install-browsers`,
         EXIT.BROWSER_MISSING,
+      );
+    }
+    // 文言は Playwright の kNoXServerRunningError。headed の login は画面の無いホストでは開けないので、
+    // 画面のある機械で作ったセッションを持ち込む手順を示す
+    if (e instanceof Error && e.message.includes("without having a XServer running")) {
+      throw new AppError(
+        `no display for the login browser. run \`mfme login\` on a machine with a display, then copy its session.json to ${shellQuote(SESSION_FILE)} on this host`,
+        EXIT.AUTH_FAILED,
       );
     }
     throw e;

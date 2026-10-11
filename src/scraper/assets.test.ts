@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { AppError } from "../errors.ts";
 import { fetchAssetSections, parseAssets, type AssetSection } from "./assets.ts";
 import type { RawRow } from "./table.ts";
 
@@ -103,13 +104,10 @@ describe("parseAssets", () => {
     expect(parseAssets([])).toEqual({ assets: [], failures: [] });
   });
 
-  test("残高の列が見つからない節は failures に回し、他の節は出す", () => {
+  test("共通の列が見つからない節は failures に回し、他の節は出す", () => {
     const stock: AssetSection = {
-      title: "株式(現物)",
-      rows: [
-        row(th("銘柄名"), th("評価額"), th("保有金融機関")),
-        row(td("X"), td("9円"), td("D 証券")),
-      ],
+      title: "未知の節",
+      rows: [row(th("列A"), th("列B"), th("保有金融機関")), row(td("X"), td("9円"), td("D 証券"))],
     };
     expect(parseAssets([stock, depo])).toEqual({
       assets: [
@@ -122,7 +120,7 @@ describe("parseAssets", () => {
         },
         { type: "預金・現金", name: "財布", balance: 3400, institution: "財布", details: {} },
       ],
-      failures: [{ section: "株式(現物)", reason: 'column "種類・名称" or "名称" not found' }],
+      failures: [{ section: "未知の節", reason: 'column "種類・名称" or "名称" not found' }],
     });
   });
 
@@ -185,17 +183,44 @@ describe("fetchAssetSections", () => {
     ]);
   });
 
+  async function rejection(p: Promise<unknown>): Promise<AppError> {
+    try {
+      await p;
+    } catch (e) {
+      return e as AppError;
+    }
+    throw new Error("did not reject");
+  }
+
   test("節が 1 つも無ければ 0 件にせず ELEMENT_NOT_FOUND(2)", async () => {
     const { page } = fakePage({ root: true, sections: [] });
-    await expect(fetchAssetSections(page)).rejects.toThrow(
-      'asset section not found: section[id^="portfolio_det_"]',
-    );
+    const e = await rejection(fetchAssetSections(page));
+    expect(e.exitCode).toBe(2);
+    expect(e.message).toBe('asset section not found: section[id^="portfolio_det_"]');
   });
 
   test("#bs-portfolio が無ければ ELEMENT_NOT_FOUND(2)", async () => {
     const { page } = fakePage({ root: false, sections: [depo] });
-    await expect(fetchAssetSections(page)).rejects.toThrow(
-      "asset page layout changed: #bs-portfolio not found",
-    );
+    const e = await rejection(fetchAssetSections(page));
+    expect(e.exitCode).toBe(2);
+    expect(e.message).toBe("asset page layout changed: #bs-portfolio not found");
+  });
+
+  test("ログイン画面に飛ばされたら、ページの部品が無くても AUTH_FAILED(1)", async () => {
+    const { page } = fakePage({
+      root: false,
+      sections: [],
+      url: "https://moneyforward.com/sign_in",
+    });
+    expect((await rejection(fetchAssetSections(page))).exitCode).toBe(1);
+  });
+});
+
+describe("parseAssets の見出し", () => {
+  test("見出しが取れない節は、種類の無い資産を出さずに failures に回す", () => {
+    expect(parseAssets([{ ...depo, title: "" }])).toEqual({
+      assets: [],
+      failures: [{ section: "", reason: "section title not found" }],
+    });
   });
 });

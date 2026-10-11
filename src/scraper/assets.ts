@@ -27,7 +27,7 @@ function pickColumn(headers: string[], candidates: readonly string[], label: str
 }
 
 // 節ごとに列の並びが違う (預金は「残高」、ポイントは「名称」と「現在の価値」) ので、
-// 節の見出しを type にし、共通の 3 列だけを固定の項目に、残りは details に入れる
+// 節の見出しを type にし、名称・残高・金融機関の 3 列を固定の項目に、残りは details に入れる
 function parseSection(section: AssetSection): Asset[] {
   const headers = tableHeader(section.rows);
   const nameCol = pickColumn(headers, COMMON.name, `"${COMMON.name.join('" or "')}"`);
@@ -54,6 +54,11 @@ export function parseAssets(sections: AssetSection[]): {
   const assets: Asset[] = [];
   const failures: Array<{ section: string; reason: string }> = [];
   for (const section of sections) {
+    // 見出しは type の唯一の出どころなので、取れなければ種類の無い資産を出さずに節ごと止める
+    if (section.title === "") {
+      failures.push({ section: section.title, reason: "section title not found" });
+      continue;
+    }
     if (section.rows.length === 0) {
       failures.push({ section: section.title, reason: "table not found" });
       continue;

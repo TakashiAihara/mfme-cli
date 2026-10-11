@@ -64,9 +64,14 @@ describe("parseLiabilities", () => {
   });
 
   test("見出しだけの表でも列が欠けていれば ELEMENT_NOT_FOUND(2)", () => {
-    expect(() => parseLiabilities([row(th("種類"), th("名称・説明"), th("残高"))])).toThrow(
-      'liability table: column "保有金融機関" not found',
-    );
+    let caught: unknown;
+    try {
+      parseLiabilities([row(th("種類"), th("名称・説明"), th("残高"))]);
+    } catch (e) {
+      caught = e;
+    }
+    expect((caught as AppError).exitCode).toBe(2);
+    expect((caught as AppError).message).toBe('liability table: column "保有金融機関" not found');
   });
 
   test("見出しだけでデータ行が無ければ空配列", () => {
@@ -139,8 +144,9 @@ describe("fetchLiabilities", () => {
     );
   });
 
-  test("ログイン画面に飛ばされたら AUTH_FAILED(1)", async () => {
-    const { page } = fakePage({ table: true, url: "https://moneyforward.com/sign_in" });
+  // ログイン画面には明細表が無いので、表の検査より先に認証を見ないとログイン切れが exit 2 に化ける
+  test("ログイン画面に飛ばされたら、表が無くても AUTH_FAILED(1)", async () => {
+    const { page } = fakePage({ table: false, url: "https://moneyforward.com/sign_in" });
     let caught: unknown;
     try {
       await fetchLiabilities(page);

@@ -36,19 +36,18 @@ bun run check              # CI と同じ 4 段: typecheck / lint / format:check
 
 ### 画面の無いホストでのログイン
 
-`mfme login` はブラウザを画面付きで開くので、X サーバの無いホスト (ssh で入るだけのサーバ) では開けない (exit `1` で止まる)。画面のある機械でログインし、できたセッションを持ち込む。
+`mfme login` はブラウザを画面付きで開くので、X サーバの無いホスト (ssh で入るだけのサーバ) では開けない。その場合は exit `1` で止まり、セッションを置くべきパスを 1 行で出す。画面のある機械でログインし、できたセッションをそのパスに持ち込む。
 
 ```bash
 # 画面のある機械で (この節の Install を済ませたうえで)
 mfme login
-ssh <host> 'mkdir -p ~/.config/mfme'
-scp ~/.config/mfme/session.json <host>:~/.config/mfme/session.json
-# 持ち込んだ先で
-chmod 600 ~/.config/mfme/session.json
-mfme list --since 2026-10-01 --format json | head -c 200
+# 送り先のパスは、送り先で mfme login が出した 1 行の末尾のもの。XDG_CONFIG_HOME が無ければ下のとおり
+ssh <host> 'mkdir -m 700 -p ~/.config/mfme'
+scp ~/.config/mfme/session.json <host>:.config/mfme/session.json
+ssh <host> 'chmod 600 ~/.config/mfme/session.json && mfme list --since 2026-10-01 --format json > /dev/null; echo "exit=$?"'
 ```
 
-`XDG_CONFIG_HOME` を設定している環境では `~/.config` をその値に読み替える。
+最後の行が `exit=0` なら持ち込めている。`exit=1` ならセッションが無効 (期限切れ / パス違い)。
 
 ## Commands
 
@@ -123,7 +122,7 @@ meta 欠落を行ごとの失敗にしていないのは、復旧手段が `mfme
 
 - stdout: JSON / NDJSON / CSV (skill がパイプで受ける)
 - stderr: 進捗ログ (`[info] ...` / `[error] ...`)
-- exit code: `0` 成功 / `1` 認証失敗 / `2` 要素見つからない / `3` 入力不正 / `4` その他 / `5` ブラウザ未導入
+- exit code: `0` 成功 / `1` 認証・セッション (失敗 / 未ログイン / ログイン用の画面が無い) / `2` 要素見つからない / `3` 入力不正 / `4` その他 / `5` ブラウザ未導入
   (`update --stdin` は 1 件でも失敗すれば `4`)
 
 ### ストレージ

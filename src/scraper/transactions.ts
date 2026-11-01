@@ -47,25 +47,22 @@ export async function fetchTransactions(page: Page, opts: ListOptions): Promise<
   return filterByDate(results, since, untilStr);
 }
 
-// /cf を開いて CSRF token / jQuery / .list_body を確立する。
+// /cf を開いて CSRF token / jQuery / .list_body を確立する。.list_body も jQuery も
+// サーバの HTML に入っているので DOMContentLoaded で揃う (2026-11-01 確認)。
 // 行 (tr.transaction_list) は待たない。当月が 0 件の月初は行が 1 本も無く、行を待つと過去月も取れなくなる
-export async function openCf(page: Page): Promise<void> {
+async function openCf(page: Page): Promise<void> {
   await page.goto(URL_CF, { waitUntil: "domcontentloaded" });
   await assertAuthenticated(page);
-  try {
-    await page.waitForSelector(".list_body", { state: "attached", timeout: 20_000 });
-  } catch (e) {
-    // .list_body が無いのは画面の作りが変わったときで、0 件として返すと空の結果で成功してしまう
-    if (e instanceof Error && e.name === "TimeoutError") {
-      throw new AppError("transaction list (.list_body) not found on /cf", EXIT.ELEMENT_NOT_FOUND);
-    }
-    throw e;
+  // .list_body が無いのは画面の作りが変わったときか、同じホストの保守・エラー画面に着いたとき。
+  // 0 件として返すと空の結果で成功してしまうので止める
+  if ((await page.$(".list_body")) === null) {
+    throw new AppError("transaction list (.list_body) not found on /cf", EXIT.ELEMENT_NOT_FOUND);
   }
 }
 
 // POST /cf/fetch はサーバ側で「選択月」を切り替えつつ JS を返し、
 // それを eval することで `.list_body` に対象月の行が差し込まれる。
-export async function fetchMonthIntoDom(page: Page, from: string): Promise<void> {
+async function fetchMonthIntoDom(page: Page, from: string): Promise<void> {
   const ok = await page.evaluate(async (fromDate) => {
     const token = document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content ?? "";
     const body = new URLSearchParams({ from: fromDate, service_id: "", account_id_hash: "" });

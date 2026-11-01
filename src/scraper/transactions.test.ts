@@ -61,13 +61,22 @@ describe("filterByDate", () => {
 });
 
 // /cf の DOM を月単位で持つだけの fake。/cf を開いた直後は current の月が載っている
-function fakeCf(o: { current: string; rows: Record<string, number>; listBody?: boolean }): Page {
+function fakeCf(o: {
+  current: string;
+  rows: Record<string, number>;
+  listBody?: boolean;
+  url?: string;
+}): Page {
   let month = o.current;
+  let opened = false;
   const page = {
-    goto: async () => null,
-    url: () => "https://moneyforward.com/cf",
-    $: async (sel: string) => (sel === ".list_body" && o.listBody !== false ? {} : null),
-    // 行を待つ実装に戻すと、行の無い月ではここで実物と同じく timeout する
+    goto: async (url: string) => {
+      opened = url === "https://moneyforward.com/cf";
+      return null;
+    },
+    url: () => o.url ?? "https://moneyforward.com/cf",
+    $: async (sel: string) => (opened && sel === ".list_body" && o.listBody !== false ? {} : null),
+    // 今の実装は何も待たない。待つ実装に戻すとここで落ちる
     waitForSelector: async (sel: string) => {
       throw new Error(`waitForSelector: Timeout exceeded (${sel})`);
     },
@@ -98,15 +107,28 @@ async function rejection(p: Promise<unknown>): Promise<AppError> {
 }
 
 describe("fetchTransactions", () => {
-  test("当月が 0 件でも過去月の行を返す", async () => {
-    const page = fakeCf({ current: "2026/11/1", rows: { "2026/10/1": 3 } });
-    const txs = await fetchTransactions(page, { since: "2026-10-01", until: "2026-10-31" });
-    expect(txs.map((t) => t.id)).toEqual(["2026/10/1-0", "2026/10/1-1", "2026/10/1-2"]);
+  test("当月が 0 件でも期間内の過去月の行を返す", async () => {
+    // 9 月の行は 15 日なので since (9/20) より前で落ち、10 月の 2 本だけが残る
+    const page = fakeCf({ current: "2026/11/1", rows: { "2026/9/1": 1, "2026/10/1": 2 } });
+    const txs = await fetchTransactions(page, { since: "2026-09-20", until: "2026-11-01" });
+    expect(txs.map((t) => t.id)).toEqual(["2026/10/1-0", "2026/10/1-1"]);
   });
 
   test("期間の全月が 0 件なら空配列で成功する", async () => {
     const page = fakeCf({ current: "2026/11/1", rows: {} });
     expect(await fetchTransactions(page, { since: "2026-11-01", until: "2026-11-30" })).toEqual([]);
+  });
+
+  test("ログイン画面に飛ばされたら AUTH_FAILED で止まる", async () => {
+    const page = fakeCf({
+      current: "2026/11/1",
+      rows: {},
+      url: "https://moneyforward.com/sign_in",
+    });
+    const e = await rejection(
+      fetchTransactions(page, { since: "2026-11-01", until: "2026-11-30" }),
+    );
+    expect(e.exitCode).toBe(EXIT.AUTH_FAILED);
   });
 
   test(".list_body が無ければ 0 件ではなく ELEMENT_NOT_FOUND で止まる", async () => {

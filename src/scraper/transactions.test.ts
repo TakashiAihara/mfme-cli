@@ -1,6 +1,8 @@
 import { describe, expect, test } from "bun:test";
-import { monthCursor, filterByDate } from "./transactions.ts";
-import type { Transaction } from "../types.ts";
+import type { Page } from "playwright";
+import { AppError } from "../errors.ts";
+import { monthCursor, filterByDate, fetchTransactions } from "./transactions.ts";
+import { EXIT, type Transaction } from "../types.ts";
 
 const baseTx: Omit<Transaction, "date"> = {
   id: "1",
@@ -55,5 +57,89 @@ describe("filterByDate", () => {
 
   test("空リスト", () => {
     expect(filterByDate([], "2026-01-01", "2026-01-31")).toEqual([]);
+  });
+});
+
+// /cf の DOM を月単位で持つだけの fake。/cf を開いた直後は current の月が載っている
+function fakeCf(o: {
+  current: string;
+  rows: Record<string, number>;
+  listBody?: boolean;
+  url?: string;
+}): Page {
+  let month = o.current;
+  let opened = false;
+  const page = {
+    goto: async (url: string) => {
+      opened = url === "https://moneyforward.com/cf";
+      return null;
+    },
+    url: () => o.url ?? "https://moneyforward.com/cf",
+    // ログイン画面に .list_body は無いので、認証の検査より先に要素を見る実装は exit 2 になって落ちる
+    $: async (sel: string) =>
+      opened && o.url === undefined && sel === ".list_body" && o.listBody !== false ? {} : null,
+    // 今の実装は何も待たない。待つ実装に戻すとここで落ちる
+    waitForSelector: async (sel: string) => {
+      throw new Error(`waitForSelector: Timeout exceeded (${sel})`);
+    },
+    evaluate: async (_fn: unknown, from: string) => {
+      month = from;
+      return { ok: true, error: null };
+    },
+    $$eval: async () =>
+      Array.from({ length: o.rows[month] ?? 0 }, (_, i) => ({
+        ...baseTx,
+        id: `${month}-${i}`,
+        date: month.replace(
+          /^(\d+)\/(\d+)\/1$/,
+          (_m, y, m) => `${y}-${String(m).padStart(2, "0")}-15`,
+        ),
+      })),
+  };
+  return page as unknown as Page;
+}
+
+async function rejection(p: Promise<unknown>): Promise<AppError> {
+  try {
+    await p;
+  } catch (e) {
+    return e as AppError;
+  }
+  throw new Error("did not throw");
+}
+
+describe("fetchTransactions", () => {
+  test("当月が 0 件でも期間内の過去月の行を返す", async () => {
+    // 9 月の行は 15 日なので since (9/20) より前で落ち、10 月の 2 本だけが残る
+    const page = fakeCf({ current: "2026/11/1", rows: { "2026/9/1": 1, "2026/10/1": 2 } });
+    const txs = await fetchTransactions(page, { since: "2026-09-20", until: "2026-11-01" });
+    expect(txs.map((t) => t.id)).toEqual(["2026/10/1-0", "2026/10/1-1"]);
+  });
+
+  test("期間の全月が 0 件なら空配列で成功する", async () => {
+    const page = fakeCf({ current: "2026/11/1", rows: {} });
+    expect(await fetchTransactions(page, { since: "2026-11-01", until: "2026-11-30" })).toEqual([]);
+  });
+
+  test("ログイン画面に飛ばされたら AUTH_FAILED で止まる", async () => {
+    const page = fakeCf({
+      current: "2026/11/1",
+      rows: {},
+      url: "https://moneyforward.com/sign_in",
+    });
+    const e = await rejection(
+      fetchTransactions(page, { since: "2026-11-01", until: "2026-11-30" }),
+    );
+    expect(e.exitCode).toBe(EXIT.AUTH_FAILED);
+  });
+
+  test(".list_body が無ければ 0 件ではなく ELEMENT_NOT_FOUND で止まる", async () => {
+    const page = fakeCf({ current: "2026/11/1", rows: { "2026/10/1": 3 }, listBody: false });
+    const e = await rejection(
+      fetchTransactions(page, { since: "2026-10-01", until: "2026-10-31" }),
+    );
+    expect(e).toBeInstanceOf(AppError);
+    expect(e.exitCode).toBe(EXIT.ELEMENT_NOT_FOUND);
+    expect(e.message).toContain("(.list_body) not found on /cf");
   });
 });

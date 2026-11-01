@@ -1,6 +1,8 @@
 import type { Page } from "playwright";
-import type { Transaction } from "../types.ts";
+import { AppError } from "../errors.ts";
+import { EXIT, type Transaction } from "../types.ts";
 import { assertAuthenticated } from "./auth.ts";
+import { URL_CF } from "./urls.ts";
 
 export type ListOptions = {
   since?: string;
@@ -34,10 +36,7 @@ export async function fetchTransactions(page: Page, opts: ListOptions): Promise<
   const since = opts.since ?? `${untilStr.slice(0, 7)}-01`;
   const months = monthCursor(since, untilStr);
 
-  // 初回に /cf を開いて CSRF token / jQuery / list_body を確立
-  await page.goto("https://moneyforward.com/cf", { waitUntil: "domcontentloaded" });
-  await assertAuthenticated(page);
-  await page.waitForSelector("tr.transaction_list", { timeout: 20_000 });
+  await openCf(page);
 
   const results: Transaction[] = [];
   for (const m of months) {
@@ -46,6 +45,19 @@ export async function fetchTransactions(page: Page, opts: ListOptions): Promise<
     results.push(...rows);
   }
   return filterByDate(results, since, untilStr);
+}
+
+// /cf を開いて CSRF token / jQuery / .list_body を確立する。.list_body も jQuery も
+// サーバの HTML に入っているので DOMContentLoaded で揃う (2026-11-01 確認)。
+// 行 (tr.transaction_list) は待たない。当月が 0 件の月初は行が 1 本も無く、行を待つと過去月も取れなくなる
+async function openCf(page: Page): Promise<void> {
+  await page.goto(URL_CF, { waitUntil: "domcontentloaded" });
+  await assertAuthenticated(page);
+  // .list_body が無いのは画面の作りが変わったときか、同じホストの保守・エラー画面に着いたとき。
+  // 0 件として返すと空の結果で成功してしまうので止める
+  if ((await page.$(".list_body")) === null) {
+    throw new AppError("transaction list (.list_body) not found on /cf", EXIT.ELEMENT_NOT_FOUND);
+  }
 }
 
 // POST /cf/fetch はサーバ側で「選択月」を切り替えつつ JS を返し、

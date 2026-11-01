@@ -1,6 +1,8 @@
 import type { Page } from "playwright";
-import type { Transaction } from "../types.ts";
+import { AppError } from "../errors.ts";
+import { EXIT, type Transaction } from "../types.ts";
 import { assertAuthenticated } from "./auth.ts";
+import { URL_CF } from "./urls.ts";
 
 export type ListOptions = {
   since?: string;
@@ -34,10 +36,7 @@ export async function fetchTransactions(page: Page, opts: ListOptions): Promise<
   const since = opts.since ?? `${untilStr.slice(0, 7)}-01`;
   const months = monthCursor(since, untilStr);
 
-  // 初回に /cf を開いて CSRF token / jQuery / list_body を確立
-  await page.goto("https://moneyforward.com/cf", { waitUntil: "domcontentloaded" });
-  await assertAuthenticated(page);
-  await page.waitForSelector("tr.transaction_list", { timeout: 20_000 });
+  await openCf(page);
 
   const results: Transaction[] = [];
   for (const m of months) {
@@ -48,9 +47,25 @@ export async function fetchTransactions(page: Page, opts: ListOptions): Promise<
   return filterByDate(results, since, untilStr);
 }
 
+// /cf を開いて CSRF token / jQuery / .list_body を確立する。
+// 行 (tr.transaction_list) は待たない。当月が 0 件の月初は行が 1 本も無く、行を待つと過去月も取れなくなる
+export async function openCf(page: Page): Promise<void> {
+  await page.goto(URL_CF, { waitUntil: "domcontentloaded" });
+  await assertAuthenticated(page);
+  try {
+    await page.waitForSelector(".list_body", { state: "attached", timeout: 20_000 });
+  } catch (e) {
+    // .list_body が無いのは画面の作りが変わったときで、0 件として返すと空の結果で成功してしまう
+    if (e instanceof Error && e.name === "TimeoutError") {
+      throw new AppError("transaction list (.list_body) not found on /cf", EXIT.ELEMENT_NOT_FOUND);
+    }
+    throw e;
+  }
+}
+
 // POST /cf/fetch はサーバ側で「選択月」を切り替えつつ JS を返し、
 // それを eval することで `.list_body` に対象月の行が差し込まれる。
-async function fetchMonthIntoDom(page: Page, from: string): Promise<void> {
+export async function fetchMonthIntoDom(page: Page, from: string): Promise<void> {
   const ok = await page.evaluate(async (fromDate) => {
     const token = document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content ?? "";
     const body = new URLSearchParams({ from: fromDate, service_id: "", account_id_hash: "" });

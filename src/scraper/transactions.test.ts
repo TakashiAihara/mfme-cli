@@ -75,7 +75,9 @@ function fakeCf(o: {
       return null;
     },
     url: () => o.url ?? "https://moneyforward.com/cf",
-    $: async (sel: string) => (opened && sel === ".list_body" && o.listBody !== false ? {} : null),
+    // ログイン画面に .list_body は無いので、認証の検査より先に要素を見る実装は exit 2 になって落ちる
+    $: async (sel: string) =>
+      opened && o.url === undefined && sel === ".list_body" && o.listBody !== false ? {} : null,
     // 今の実装は何も待たない。待つ実装に戻すとここで落ちる
     waitForSelector: async (sel: string) => {
       throw new Error(`waitForSelector: Timeout exceeded (${sel})`);

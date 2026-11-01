@@ -17,8 +17,11 @@ function fakeEmptyCf(o: { url?: string; button?: boolean } = {}) {
       return null;
     },
     url: () => o.url ?? "https://moneyforward.com/cf",
+    // ログイン画面にボタンは無いので、認証の検査より先に要素を見る実装は exit 2 になって落ちる
     $: async (sel: string) =>
-      loaded && sel === "button.cf-new-btn" && o.button !== false ? {} : null,
+      loaded && o.url === undefined && sel === "button.cf-new-btn" && o.button !== false
+        ? {}
+        : null,
     click: async (sel: string) => {
       if (sel.startsWith("tr.transaction_list")) throw new Error(`click: no element ${sel}`);
       clicked.push(sel);
